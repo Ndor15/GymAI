@@ -43,7 +43,10 @@ class BLEService {
   bool goingUp = false;
   bool goingDown = false;
   double lastAz = 0;
+  bool lastAzInitialized = false;
   DateTime? repStart;
+  String currentExercise = "détection...";
+  double currentConfidence = 0;
 
   // BLE scanning
   Timer? scanTimer;
@@ -102,6 +105,17 @@ class BLEService {
                 print("❌ Disconnected from $targetName");
                 isConnected = false;
                 connectedDevice = null;
+                _detectedController.add(false); // Update UI
+
+                // Reset counters
+                reps = 0;
+                lastAzInitialized = false;
+                goingUp = false;
+                repStart = null;
+                imuBuffer.clear();
+                currentExercise = "détection...";
+                currentConfidence = 0;
+
                 // Restart scan
                 _scanLoop();
               }
@@ -200,21 +214,36 @@ class BLEService {
   }
 
   void _processReps(double az) {
-    if (az > lastAz + 0.25) {
+    // Initialize lastAz with first real value
+    if (!lastAzInitialized) {
+      lastAz = az;
+      lastAzInitialized = true;
+      // Emit initial metrics to show UI
+      _emitMetrics();
+      print("🎯 Rep counter initialized (az baseline: $az)");
+      return;
+    }
+
+    // Detect upward movement (threshold: 1.5 m/s²)
+    if (az > lastAz + 1.5) {
       if (!goingUp) {
         goingUp = true;
         repStart ??= DateTime.now();
+        print("⬆️  Going UP (az: $az, lastAz: $lastAz, delta: ${az - lastAz})");
       }
     }
 
-    if (goingUp && az < lastAz - 0.25) {
+    // Detect downward movement = rep completed
+    if (goingUp && az < lastAz - 1.5) {
       goingUp = false;
       reps++;
 
       final repEnd = DateTime.now();
       final duration = repEnd.difference(repStart!).inMilliseconds;
+      final tempo = _tempo(duration);
 
-      _emitMetrics(tempo: _tempo(duration));
+      print("⬇️  Going DOWN - REP #$reps completed! (tempo: $tempo, duration: ${duration}ms)");
+      _emitMetrics(tempo: tempo);
       repStart = null;
     }
 
@@ -235,6 +264,11 @@ class BLEService {
     final idx = out.indexOf(out.reduce((a, b) => a > b ? a : b));
     final ex = idx == 0 ? "curl_biceps" : "curl_marteau";
 
+    // Store current prediction
+    currentExercise = ex;
+    currentConfidence = out[idx];
+
+    print("🤖 ML Prediction: $ex (confidence: ${(out[idx] * 100).toStringAsFixed(1)}%)");
     _emitMetrics(exercise: ex, confidence: out[idx]);
   }
 
@@ -246,11 +280,15 @@ class BLEService {
     String? tempo,
     double? confidence,
   }) {
+    // Update stored values if provided
+    if (exercise != null) currentExercise = exercise;
+    if (confidence != null) currentConfidence = confidence;
+
     _metricsController.add(TrainingMetrics(
       reps: reps,
       tempo: tempo ?? "tempo normal",
-      exercise: exercise ?? "détection...",
-      confidence: confidence ?? 0,
+      exercise: currentExercise,
+      confidence: currentConfidence,
     ));
   }
 }
