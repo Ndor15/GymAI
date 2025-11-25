@@ -62,9 +62,15 @@ class BLEService {
   }
 
   Future<void> _initAI() async {
-    await ai.load();
-    aiReady = true;
-    print("✓ AI READY");
+    try {
+      print("🤖 Loading ML model...");
+      await ai.load();
+      aiReady = true;
+      print("✓ AI READY - Model loaded successfully");
+    } catch (e) {
+      print("❌ ML model failed to load: $e");
+      print("⚠️  Rep counting will still work without ML");
+    }
   }
 
   void _scanLoop() {
@@ -200,16 +206,16 @@ class BLEService {
   // IMU PROCESS → IA + REP LOGIC
   // --------------------------------------------------
   void onImuSample(double ax, double ay, double az, double gx, double gy, double gz) {
-    if (!aiReady) return;
-
-    // REP LOGIC
+    // REP LOGIC - Always run, independent of ML
     _processReps(az);
 
-    // IA BUFFER
-    imuBuffer.add([ax, ay, az, gx, gy, gz]);
-    if (imuBuffer.length == 125) {
-      _runPrediction();
-      imuBuffer.clear();
+    // IA BUFFER - Only if ML is ready
+    if (aiReady) {
+      imuBuffer.add([ax, ay, az, gx, gy, gz]);
+      if (imuBuffer.length == 125) {
+        _runPrediction();
+        imuBuffer.clear();
+      }
     }
   }
 
