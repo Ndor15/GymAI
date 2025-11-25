@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Cette app utilise le Bluetooth pour se connecter à votre haltère intelligent et suivre vos mouvements pendant l'entraînement.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Cette app utilise le Bluetooth pour se connecter à votre haltère intelligent et suivre vos mouvements pendant l'entraînement.</string>
 </dict>
 </plist>

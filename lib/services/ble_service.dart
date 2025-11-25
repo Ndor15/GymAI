@@ -47,6 +47,8 @@ class BLEService {
 
   // BLE scanning
   Timer? scanTimer;
+  BluetoothDevice? connectedDevice;
+  bool isConnected = false;
 
   // --------------------------------------------------
   // START
@@ -59,27 +61,54 @@ class BLEService {
   Future<void> _initAI() async {
     await ai.load();
     aiReady = true;
-    print("AI READY ✓");
+    print("✓ AI READY");
   }
 
   void _scanLoop() {
+    print("🔍 Starting BLE scan loop...");
+
     scanTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
-      FlutterBluePlus.startScan(timeout: const Duration(seconds: 2));
+      if (!isConnected) {
+        print("📡 Scanning for $targetName...");
+        FlutterBluePlus.startScan(timeout: const Duration(seconds: 2));
+      }
     });
 
     FlutterBluePlus.scanResults.listen((results) async {
       for (var r in results) {
         if (r.device.name == targetName) {
+          print("✓ Found $targetName (RSSI: ${r.rssi})");
           _detectedController.add(true);
 
-          // Auto connect
-          FlutterBluePlus.stopScan();
-          try {
-            await r.device.disconnect();
-          } catch (_) {}
+          if (!isConnected) {
+            // Stop scan before connecting
+            scanTimer?.cancel();
+            FlutterBluePlus.stopScan();
+            print("⏸️  Scan stopped, connecting...");
 
-          await r.device.connect();
-          await _discoverIMU(r.device);
+            try {
+              await r.device.disconnect();
+            } catch (_) {}
+
+            await r.device.connect(timeout: const Duration(seconds: 10));
+            print("✓ Connected to $targetName");
+
+            connectedDevice = r.device;
+            isConnected = true;
+
+            // Listen for disconnection
+            r.device.connectionState.listen((state) {
+              if (state == BluetoothConnectionState.disconnected) {
+                print("❌ Disconnected from $targetName");
+                isConnected = false;
+                connectedDevice = null;
+                // Restart scan
+                _scanLoop();
+              }
+            });
+
+            await _discoverIMU(r.device);
+          }
           return;
         }
       }
@@ -91,17 +120,40 @@ class BLEService {
   // DISCOVER + SUBSCRIBE
   // --------------------------------------------------
   Future<void> _discoverIMU(BluetoothDevice dev) async {
+    print("🔎 Discovering services...");
     final services = await dev.discoverServices();
+    print("✓ Found ${services.length} services");
+
+    bool foundService = false;
+    bool foundChar = false;
 
     for (var s in services) {
+      print("  Service: ${s.uuid}");
       if (s.uuid == serviceUuid) {
+        foundService = true;
+        print("  ✓ Found IMU service FFE0");
+
         for (var c in s.characteristics) {
+          print("    Characteristic: ${c.uuid}");
           if (c.uuid == charUuid) {
+            foundChar = true;
+            print("    ✓ Found IMU characteristic FFE1");
+
             await c.setNotifyValue(true);
+            print("    ✓ Notifications enabled");
+
             c.lastValueStream.listen(_onDataReceived);
+            print("    ✓ Listening for IMU data...");
           }
         }
       }
+    }
+
+    if (!foundService) {
+      print("❌ ERROR: Service FFE0 not found!");
+    }
+    if (!foundChar) {
+      print("❌ ERROR: Characteristic FFE1 not found!");
     }
   }
 
@@ -110,6 +162,7 @@ class BLEService {
   // --------------------------------------------------
   void _onDataReceived(List<int> bytes) {
     final text = String.fromCharCodes(bytes);
+    print("📦 BLE data received: $text");
 
     // ex: ax=1.23;ay=-0.1;az=9.81;gx=0.04;gy=0.01;gz=0.0
     try {
@@ -122,9 +175,10 @@ class BLEService {
       double gy = double.parse(parts[4].split("=")[1]);
       double gz = double.parse(parts[5].split("=")[1]);
 
+      print("✓ IMU: ax=$ax ay=$ay az=$az gx=$gx gy=$gy gz=$gz");
       onImuSample(ax, ay, az, gx, gy, gz);
-    } catch (_) {
-      print("Invalid IMU packet: $text");
+    } catch (e) {
+      print("❌ Invalid IMU packet: $text (error: $e)");
     }
   }
 
