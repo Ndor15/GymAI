@@ -125,9 +125,12 @@ class _TrainingPageState extends State<TrainingPage>
 
                 if (reps != lastReps) {
                   lastReps = reps;
-                  pulseController
-                    ..reset()
-                    ..forward();
+                  // Only animate if not already animating to prevent bounds errors
+                  if (!pulseController.isAnimating) {
+                    pulseController
+                      ..reset()
+                      ..forward();
+                  }
                 }
 
                 return Center(

@@ -45,6 +45,7 @@ class BLEService {
   double lastAz = 0;
   bool lastAzInitialized = false;
   DateTime? repStart;
+  DateTime? lastRepTime;
   String currentExercise = "détection...";
   double currentConfidence = 0;
 
@@ -118,6 +119,7 @@ class BLEService {
                 lastAzInitialized = false;
                 goingUp = false;
                 repStart = null;
+                lastRepTime = null;
                 imuBuffer.clear();
                 currentExercise = "détection...";
                 currentConfidence = 0;
@@ -230,8 +232,8 @@ class BLEService {
       return;
     }
 
-    // Detect upward movement (threshold: 1.5 m/s²)
-    if (az > lastAz + 1.5) {
+    // Detect upward movement (threshold: 3.0 m/s² for better noise filtering)
+    if (az > lastAz + 3.0) {
       if (!goingUp) {
         goingUp = true;
         repStart ??= DateTime.now();
@@ -240,12 +242,23 @@ class BLEService {
     }
 
     // Detect downward movement = rep completed
-    if (goingUp && az < lastAz - 1.5) {
+    if (goingUp && az < lastAz - 3.0) {
+      final now = DateTime.now();
+
+      // Minimum 800ms between reps to avoid false detections
+      if (lastRepTime != null && now.difference(lastRepTime!).inMilliseconds < 800) {
+        print("⚠️  Rep too fast, ignored (${now.difference(lastRepTime!).inMilliseconds}ms since last rep)");
+        goingUp = false;
+        repStart = null;
+        lastAz = az;
+        return;
+      }
+
       goingUp = false;
       reps++;
+      lastRepTime = now;
 
-      final repEnd = DateTime.now();
-      final duration = repEnd.difference(repStart!).inMilliseconds;
+      final duration = now.difference(repStart!).inMilliseconds;
       final tempo = _tempo(duration);
 
       print("⬇️  Going DOWN - REP #$reps completed! (tempo: $tempo, duration: ${duration}ms)");
