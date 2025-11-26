@@ -214,9 +214,21 @@ class BLEService {
     // IA BUFFER - Only if ML is ready
     if (aiReady) {
       imuBuffer.add([ax, ay, az, gx, gy, gz]);
+
+      // Log buffer progress every 25 samples
+      if (imuBuffer.length % 25 == 0) {
+        print("📊 ML buffer: ${imuBuffer.length}/125 samples");
+      }
+
       if (imuBuffer.length == 125) {
+        print("🔮 Running ML prediction on 125 samples...");
         _runPrediction();
         imuBuffer.clear();
+      }
+    } else {
+      // Log once when ML is not ready
+      if (imuBuffer.isEmpty) {
+        print("⚠️  ML not ready, skipping buffer (check if model loaded)");
       }
     }
   }
@@ -279,16 +291,22 @@ class BLEService {
   // IA PREDICTION
   // --------------------------------------------------
   void _runPrediction() {
-    final out = ai.predict(imuBuffer);
-    final idx = out.indexOf(out.reduce((a, b) => a > b ? a : b));
-    final ex = idx == 0 ? "curl_biceps" : "curl_marteau";
+    try {
+      final out = ai.predict(imuBuffer);
+      print("📈 ML output: curl_biceps=${(out[0] * 100).toStringAsFixed(1)}%, curl_marteau=${(out[1] * 100).toStringAsFixed(1)}%");
 
-    // Store current prediction
-    currentExercise = ex;
-    currentConfidence = out[idx];
+      final idx = out.indexOf(out.reduce((a, b) => a > b ? a : b));
+      final ex = idx == 0 ? "curl_biceps" : "curl_marteau";
 
-    print("🤖 ML Prediction: $ex (confidence: ${(out[idx] * 100).toStringAsFixed(1)}%)");
-    _emitMetrics(exercise: ex, confidence: out[idx]);
+      // Store current prediction
+      currentExercise = ex;
+      currentConfidence = out[idx];
+
+      print("🤖 ML Prediction: $ex (confidence: ${(out[idx] * 100).toStringAsFixed(1)}%)");
+      _emitMetrics(exercise: ex, confidence: out[idx]);
+    } catch (e) {
+      print("❌ ML prediction failed: $e");
+    }
   }
 
   // --------------------------------------------------

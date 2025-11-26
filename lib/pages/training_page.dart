@@ -23,9 +23,7 @@ class _TrainingPageState extends State<TrainingPage>
     pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
-      lowerBound: 0.95,
-      upperBound: 1.05,
-    )..value = 1.0;
+    )..value = 0.0;
   }
 
   @override
@@ -123,13 +121,13 @@ class _TrainingPageState extends State<TrainingPage>
                 final exercise = metrics?.exercise ?? "mouvement non reconnu";
                 final conf = metrics?.confidence ?? 0;
 
-                if (reps != lastReps) {
+                if (reps != lastReps && reps > 0) {
                   lastReps = reps;
-                  // Only animate if not already animating to prevent bounds errors
+                  // Only animate if not already animating
                   if (!pulseController.isAnimating) {
-                    pulseController
-                      ..reset()
-                      ..forward();
+                    pulseController.forward(from: 0.0).then((_) {
+                      pulseController.reverse();
+                    });
                   }
                 }
 
@@ -138,11 +136,17 @@ class _TrainingPageState extends State<TrainingPage>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Cercle reps
-                      ScaleTransition(
-                        scale: CurvedAnimation(
-                          parent: pulseController,
-                          curve: Curves.easeOutBack,
-                        ),
+                      AnimatedBuilder(
+                        animation: pulseController,
+                        builder: (context, child) {
+                          // Map 0.0-1.0 to 0.95-1.05 with easeOutBack curve
+                          final curvedValue = Curves.easeOutBack.transform(pulseController.value);
+                          final scale = 0.95 + (curvedValue * 0.10);
+                          return Transform.scale(
+                            scale: scale,
+                            child: child,
+                          );
+                        },
                         child: Container(
                           width: 200,
                           height: 200,
