@@ -6,7 +6,7 @@ class RepAI {
 
   /// Appelle load() AVANT d’utiliser predict()
   Future<void> load() async {
-    _interpreter = await Interpreter.fromAsset('models/imu_model.tflite');
+    _interpreter = await Interpreter.fromAsset('assets/models/imu_model.tflite');
 
   }
 
