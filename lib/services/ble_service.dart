@@ -240,13 +240,13 @@ class BLEService {
     if (aiReady) {
       imuBuffer.add([ax, ay, az, gx, gy, gz]);
 
-      // Log buffer progress every 25 samples
-      if (imuBuffer.length % 25 == 0) {
-        print("📊 ML buffer: ${imuBuffer.length}/125 samples");
+      // Log buffer progress every 5 samples (window size is 20)
+      if (imuBuffer.length % 5 == 0) {
+        print("📊 ML buffer: ${imuBuffer.length}/20 samples");
       }
 
-      if (imuBuffer.length == 125) {
-        print("🔮 Running ML prediction on 125 samples...");
+      if (imuBuffer.length == 20) {
+        print("🔮 Running ML prediction on 20 samples...");
         print("📊 Sample range - ax:[${imuBuffer.map((s) => s[0]).reduce((a, b) => a < b ? a : b).toStringAsFixed(2)}, ${imuBuffer.map((s) => s[0]).reduce((a, b) => a > b ? a : b).toStringAsFixed(2)}], az:[${imuBuffer.map((s) => s[2]).reduce((a, b) => a < b ? a : b).toStringAsFixed(2)}, ${imuBuffer.map((s) => s[2]).reduce((a, b) => a > b ? a : b).toStringAsFixed(2)}]");
         _runPrediction();
         imuBuffer.clear();

@@ -10,12 +10,12 @@ class RepAI {
 
   }
 
-  /// window = List<List<double>> de taille 125 × 6
+  /// window = List<List<double>> de taille 20 × 6
   List<double> predict(List<List<double>> window) {
     final input = List.generate(
       1,
           (_) => List.generate(
-        125,
+        20,
             (i) => Float32List.fromList(window[i].map((v) => v.toDouble()).toList()),
       ),
     );
