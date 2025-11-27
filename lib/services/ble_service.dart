@@ -49,6 +49,10 @@ class BLEService {
   String currentExercise = "détection...";
   double currentConfidence = 0;
 
+  // Smoothing filter for az values (moving average)
+  List<double> azBuffer = [];
+  final int smoothingWindow = 5; // 5 samples moving average
+
   // BLE scanning
   Timer? scanTimer;
   BluetoothDevice? connectedDevice;
@@ -74,13 +78,32 @@ class BLEService {
     }
   }
 
-  void _scanLoop() {
+  void _scanLoop() async {
     print("🔍 Starting BLE scan loop...");
+
+    // Wait for Bluetooth to be ready before scanning
+    print("⏳ Waiting for Bluetooth to be ready...");
+    await FlutterBluePlus.adapterState
+        .where((state) => state == BluetoothAdapterState.on)
+        .first
+        .timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            print("❌ Bluetooth timeout - make sure Bluetooth is ON");
+            return BluetoothAdapterState.unknown;
+          },
+        );
+
+    print("✓ Bluetooth is ready!");
 
     scanTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
       if (!isConnected) {
         print("📡 Scanning for $targetName...");
-        FlutterBluePlus.startScan(timeout: const Duration(seconds: 2));
+        try {
+          FlutterBluePlus.startScan(timeout: const Duration(seconds: 2));
+        } catch (e) {
+          print("❌ Scan failed: $e");
+        }
       }
     });
 
@@ -121,6 +144,7 @@ class BLEService {
                 repStart = null;
                 lastRepTime = null;
                 imuBuffer.clear();
+                azBuffer.clear();
                 currentExercise = "détection...";
                 currentConfidence = 0;
 
@@ -233,33 +257,59 @@ class BLEService {
     }
   }
 
-  void _processReps(double az) {
-    // Initialize lastAz with first real value
+  double _smoothAz(double az) {
+    // Add new value to buffer
+    azBuffer.add(az);
+
+    // Keep only last N samples
+    if (azBuffer.length > smoothingWindow) {
+      azBuffer.removeAt(0);
+    }
+
+    // Return moving average
+    return azBuffer.reduce((a, b) => a + b) / azBuffer.length;
+  }
+
+  void _processReps(double rawAz) {
+    // Apply smoothing filter to reduce noise
+    final az = _smoothAz(rawAz);
+
+    // Initialize lastAz with first smoothed value
     if (!lastAzInitialized) {
       lastAz = az;
       lastAzInitialized = true;
       // Emit initial metrics to show UI
       _emitMetrics();
-      print("🎯 Rep counter initialized (az baseline: $az)");
+      print("🎯 Rep counter initialized (az baseline: ${az.toStringAsFixed(2)})");
       return;
     }
 
-    // Detect upward movement (threshold: 3.0 m/s² for better noise filtering)
-    if (az > lastAz + 3.0) {
-      if (!goingUp) {
-        goingUp = true;
-        repStart ??= DateTime.now();
-        print("⬆️  Going UP (az: $az, lastAz: $lastAz, delta: ${az - lastAz})");
-      }
+    final delta = az - lastAz;
+
+    // Detect upward movement (threshold: 2.5 m/s² - adjusted for smoothed data)
+    if (delta > 2.5 && !goingUp) {
+      goingUp = true;
+      repStart = DateTime.now();
+      print("⬆️  Going UP (az: ${az.toStringAsFixed(2)}, delta: ${delta.toStringAsFixed(2)})");
     }
 
     // Detect downward movement = rep completed
-    if (goingUp && az < lastAz - 3.0) {
+    if (goingUp && delta < -2.5) {
       final now = DateTime.now();
 
-      // Minimum 800ms between reps to avoid false detections
-      if (lastRepTime != null && now.difference(lastRepTime!).inMilliseconds < 800) {
-        print("⚠️  Rep too fast, ignored (${now.difference(lastRepTime!).inMilliseconds}ms since last rep)");
+      // Check minimum time between reps (600ms minimum for realistic curl)
+      if (lastRepTime != null && now.difference(lastRepTime!).inMilliseconds < 600) {
+        print("⚠️  Rep too fast, ignored (${now.difference(lastRepTime!).inMilliseconds}ms)");
+        goingUp = false;
+        repStart = null;
+        lastAz = az;
+        return;
+      }
+
+      // Check minimum rep duration (400ms minimum)
+      final duration = now.difference(repStart!).inMilliseconds;
+      if (duration < 400) {
+        print("⚠️  Rep too short, ignored (${duration}ms)");
         goingUp = false;
         repStart = null;
         lastAz = az;
@@ -270,10 +320,8 @@ class BLEService {
       reps++;
       lastRepTime = now;
 
-      final duration = now.difference(repStart!).inMilliseconds;
       final tempo = _tempo(duration);
-
-      print("⬇️  Going DOWN - REP #$reps completed! (tempo: $tempo, duration: ${duration}ms)");
+      print("⬇️  Going DOWN - REP #$reps ✓ (tempo: $tempo, ${duration}ms)");
       _emitMetrics(tempo: tempo);
       repStart = null;
     }

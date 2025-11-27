@@ -42,3 +42,8 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // TensorFlow Lite Select Ops support for ML model
+    implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.14.0")
+}
