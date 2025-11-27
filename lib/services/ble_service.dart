@@ -52,6 +52,7 @@ class BLEService {
   // Smoothing filter for az values (moving average)
   List<double> azBuffer = [];
   final int smoothingWindow = 5; // 5 samples moving average
+  bool mlNotReadyLogged = false; // Track if we've logged ML not ready
 
   // BLE scanning
   Timer? scanTimer;
@@ -246,13 +247,15 @@ class BLEService {
 
       if (imuBuffer.length == 125) {
         print("🔮 Running ML prediction on 125 samples...");
+        print("📊 Sample range - ax:[${imuBuffer.map((s) => s[0]).reduce((a, b) => a < b ? a : b).toStringAsFixed(2)}, ${imuBuffer.map((s) => s[0]).reduce((a, b) => a > b ? a : b).toStringAsFixed(2)}], az:[${imuBuffer.map((s) => s[2]).reduce((a, b) => a < b ? a : b).toStringAsFixed(2)}, ${imuBuffer.map((s) => s[2]).reduce((a, b) => a > b ? a : b).toStringAsFixed(2)}]");
         _runPrediction();
         imuBuffer.clear();
       }
     } else {
       // Log once when ML is not ready
-      if (imuBuffer.isEmpty) {
+      if (!mlNotReadyLogged) {
         print("⚠️  ML not ready, skipping buffer (check if model loaded)");
+        mlNotReadyLogged = true;
       }
     }
   }
@@ -341,19 +344,30 @@ class BLEService {
   void _runPrediction() {
     try {
       final out = ai.predict(imuBuffer);
-      print("📈 ML output: curl_biceps=${(out[0] * 100).toStringAsFixed(1)}%, curl_marteau=${(out[1] * 100).toStringAsFixed(1)}%");
+      print("📈 ML raw output: [${out[0].toStringAsFixed(4)}, ${out[1].toStringAsFixed(4)}]");
+      print("📈 ML percentages: curl_biceps=${(out[0] * 100).toStringAsFixed(1)}%, curl_marteau=${(out[1] * 100).toStringAsFixed(1)}%");
 
+      // Find highest confidence
       final idx = out.indexOf(out.reduce((a, b) => a > b ? a : b));
+      final maxConfidence = out[idx];
       final ex = idx == 0 ? "curl_biceps" : "curl_marteau";
 
-      // Store current prediction
-      currentExercise = ex;
-      currentConfidence = out[idx];
+      print("🤖 Highest: $ex with confidence ${(maxConfidence * 100).toStringAsFixed(1)}%");
 
-      print("🤖 ML Prediction: $ex (confidence: ${(out[idx] * 100).toStringAsFixed(1)}%)");
-      _emitMetrics(exercise: ex, confidence: out[idx]);
-    } catch (e) {
+      // Only update if confidence is above threshold (30%)
+      if (maxConfidence > 0.30) {
+        currentExercise = ex;
+        currentConfidence = maxConfidence;
+        print("✓ ML Prediction: $ex (confidence: ${(maxConfidence * 100).toStringAsFixed(1)}%)");
+        _emitMetrics(exercise: ex, confidence: maxConfidence);
+      } else {
+        print("⚠️  Confidence too low (${(maxConfidence * 100).toStringAsFixed(1)}%), keeping previous: $currentExercise");
+        // Still emit metrics but keep current exercise
+        _emitMetrics();
+      }
+    } catch (e, stackTrace) {
       print("❌ ML prediction failed: $e");
+      print("Stack trace: $stackTrace");
     }
   }
 
