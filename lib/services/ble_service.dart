@@ -64,10 +64,10 @@ class BLEService {
   DateTime? repStartTime;
   DateTime? lastRepTime;
 
-  // Thresholds FIXES et TRÈS SENSIBLES (repos ~11 m/s²)
-  static const double MOVEMENT_START_THRESHOLD = 11.5; // Très sensible
-  static const double MOVEMENT_END_THRESHOLD = 11.2; // Hysteresis
-  static const double MIN_PEAK_VALUE = 12.5; // Peak bas pour compter facilement
+  // Thresholds FIXES et ULTRA SENSIBLES (repos ~11 m/s²)
+  static const double MOVEMENT_START_THRESHOLD = 11.5; // Détecte mouvement
+  static const double MOVEMENT_END_THRESHOLD = 11.2; // Retour repos
+  static const double MIN_PEAK_VALUE = 11.8; // TRÈS BAS - compte presque tout!
   static const int MIN_REP_DURATION_MS = 200;
   static const int MAX_REP_DURATION_MS = 4000;
   static const int MIN_TIME_BETWEEN_REPS_MS = 300; // Très court
