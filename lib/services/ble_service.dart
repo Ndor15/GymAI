@@ -64,13 +64,16 @@ class BLEService {
   DateTime? repStartTime;
   DateTime? lastRepTime;
 
-  // Thresholds - tuned to detect real reps while ignoring micro-movements
-  static const double MOVEMENT_START_THRESHOLD = 11.0; // m/s² - movement starts when going above
-  static const double MOVEMENT_END_THRESHOLD = 10.5; // m/s² - movement ends when going below (hysteresis)
-  static const double MIN_PEAK_VALUE = 12.5; // m/s² - peak must reach at least this for valid rep
-  static const int MIN_REP_DURATION_MS = 250; // Minimum time for one rep
+  // Thresholds - TRÈS SENSIBLES pour détecter tous les mouvements
+  static const double MOVEMENT_START_THRESHOLD = 10.3; // m/s² - movement starts (baseline ~9.8)
+  static const double MOVEMENT_END_THRESHOLD = 10.0; // m/s² - movement ends (hysteresis)
+  static const double MIN_PEAK_VALUE = 11.0; // m/s² - peak minimum pour compter
+  static const int MIN_REP_DURATION_MS = 200; // Minimum time for one rep
   static const int MAX_REP_DURATION_MS = 4000; // Maximum time for one rep
-  static const int MIN_TIME_BETWEEN_REPS_MS = 400; // Minimum time between reps
+  static const int MIN_TIME_BETWEEN_REPS_MS = 350; // Minimum time between reps
+
+  // Debug counter
+  int _sampleCount = 0;
 
   bool mlNotReadyLogged = false; // Track if we've logged ML not ready
 
@@ -447,6 +450,12 @@ class BLEService {
     }
 
     final now = DateTime.now();
+
+    // Log magnitude periodically for debugging (every 10 samples)
+    _sampleCount++;
+    if (_sampleCount % 10 == 0) {
+      print("📊 Magnitude: ${accelMag.toStringAsFixed(2)} m/s² [État: ${repState == RepState.IDLE ? 'IDLE' : 'MOVING'}] (seuil start: $MOVEMENT_START_THRESHOLD, end: $MOVEMENT_END_THRESHOLD)");
+    }
 
     // SIMPLIFIED STATE MACHINE - 2 states only
     if (repState == RepState.IDLE) {
