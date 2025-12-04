@@ -59,12 +59,78 @@ class BLEService {
   BluetoothDevice? connectedDevice;
   bool isConnected = false;
 
+  // WORKOUT SESSION
+  bool isWorkoutActive = false;
+  DateTime? workoutStartTime;
+  Timer? sessionTimer;
+  Duration sessionDuration = Duration.zero;
+
+  final _sessionDurationController = StreamController<Duration>.broadcast();
+  Stream<Duration> get sessionDurationStream => _sessionDurationController.stream;
+
+  final _workoutStateController = StreamController<bool>.broadcast();
+  Stream<bool> get workoutStateStream => _workoutStateController.stream;
+
   // --------------------------------------------------
-  // START
+  // WORKOUT CONTROL
   // --------------------------------------------------
-  void start() {
+  void startWorkout() {
+    if (isWorkoutActive) return;
+
+    print("🏋️ Starting workout session...");
+    isWorkoutActive = true;
+    workoutStartTime = DateTime.now();
+    sessionDuration = Duration.zero;
+    _workoutStateController.add(true);
+
+    // Start session timer (update every second)
+    sessionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (workoutStartTime != null) {
+        sessionDuration = DateTime.now().difference(workoutStartTime!);
+        _sessionDurationController.add(sessionDuration);
+      }
+    });
+
+    // Initialize AI and start BLE scan
     _initAI();
     _scanLoop();
+  }
+
+  void stopWorkout() {
+    if (!isWorkoutActive) return;
+
+    print("🛑 Stopping workout session...");
+    isWorkoutActive = false;
+    _workoutStateController.add(false);
+
+    // Stop session timer
+    sessionTimer?.cancel();
+    sessionTimer = null;
+
+    // Stop BLE scan
+    scanTimer?.cancel();
+    scanTimer = null;
+    FlutterBluePlus.stopScan();
+
+    // Disconnect if connected
+    if (isConnected && connectedDevice != null) {
+      connectedDevice!.disconnect();
+    }
+
+    print("✓ Workout stopped. Duration: ${_formatDuration(sessionDuration)}");
+  }
+
+  String _formatDuration(Duration d) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    return "${twoDigits(d.inMinutes)}:${twoDigits(d.inSeconds.remainder(60))}";
+  }
+
+  // --------------------------------------------------
+  // START (deprecated - use startWorkout instead)
+  // --------------------------------------------------
+  void start() {
+    // Keep for backward compatibility but prefer startWorkout()
+    startWorkout();
   }
 
   Future<void> _initAI() async {

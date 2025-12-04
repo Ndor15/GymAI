@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:gymai/services/ble_service.dart';
 
@@ -18,7 +19,7 @@ class _TrainingPageState extends State<TrainingPage>
   @override
   void initState() {
     super.initState();
-    ble.start();
+    // Don't auto-start - wait for user to click Start Workout button
 
     pulseController = AnimationController(
       vsync: this,
@@ -57,6 +58,115 @@ class _TrainingPageState extends State<TrainingPage>
       ),
       body: Column(
         children: [
+          const SizedBox(height: 16),
+
+          // Start/Stop Workout Button + Session Timer
+          StreamBuilder<bool>(
+            stream: ble.workoutStateStream,
+            initialData: false,
+            builder: (context, workoutSnapshot) {
+              final isActive = workoutSnapshot.data ?? false;
+
+              return Column(
+                children: [
+                  // Session Timer
+                  if (isActive)
+                    StreamBuilder<Duration>(
+                      stream: ble.sessionDurationStream,
+                      initialData: Duration.zero,
+                      builder: (context, timerSnapshot) {
+                        final duration = timerSnapshot.data ?? Duration.zero;
+                        final minutes = duration.inMinutes.toString().padLeft(2, '0');
+                        final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 24),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.timer_outlined,
+                                color: Color(0xFFF5C32E),
+                                size: 24,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                "$minutes:$seconds",
+                                style: const TextStyle(
+                                  color: Color(0xFFF5C32E),
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w700,
+                                  fontFeatures: [FontFeature.tabularFigures()],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+
+                  if (isActive) const SizedBox(height: 16),
+
+                  // Start/Stop Button
+                  GestureDetector(
+                    onTap: () {
+                      if (isActive) {
+                        ble.stopWorkout();
+                      } else {
+                        ble.startWorkout();
+                      }
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        gradient: LinearGradient(
+                          colors: isActive
+                              ? [Colors.red.shade400, Colors.red.shade600]
+                              : [const Color(0xFFF5C32E), const Color(0xFFFFA500)],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (isActive ? Colors.red : const Color(0xFFF5C32E))
+                                .withOpacity(0.3),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isActive ? Icons.stop : Icons.play_arrow,
+                            color: Colors.black,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            isActive ? "STOP WORKOUT" : "START WORKOUT",
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+
           const SizedBox(height: 16),
 
           // Etat connexion / proximité
