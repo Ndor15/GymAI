@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'rep_ai.dart';
 import '../models/workout_models.dart';
@@ -40,20 +41,33 @@ class BLEService {
   bool aiReady = false;
   List<List<double>> imuBuffer = [];
 
-  // REP LOGIC
+  // REP LOGIC - Robust system using acceleration magnitude
   int reps = 0;
-  bool goingUp = false;
-  bool goingDown = false;
-  double lastAz = 0;
-  bool lastAzInitialized = false;
-  DateTime? repStart;
-  DateTime? lastRepTime;
   String currentExercise = "détection...";
   double currentConfidence = 0;
 
-  // Smoothing filter for az values (moving average)
-  List<double> azBuffer = [];
+  // State machine for rep detection
+  enum RepState { IDLE, MOVING, PEAK_DETECTED }
+  RepState repState = RepState.IDLE;
+
+  // Acceleration tracking (uses magnitude, not just z-axis)
+  List<double> accelMagnitudeBuffer = []; // For smoothing
   final int smoothingWindow = 5; // 5 samples moving average
+  double lastAccelMagnitude = 0;
+  bool magnitudeInitialized = false;
+
+  // Peak/valley tracking for detecting complete movement cycles
+  double currentPeakValue = 0;
+  double currentValleyValue = 999;
+  DateTime? repStartTime;
+  DateTime? lastRepTime;
+
+  // Thresholds - tuned to detect real reps while ignoring micro-movements
+  static const double MOVEMENT_THRESHOLD = 12.0; // m/s² - detects start of movement
+  static const double MIN_AMPLITUDE = 8.0; // m/s² - minimum peak-valley difference for valid rep
+  static const int MIN_REP_DURATION_MS = 300; // Minimum time for one rep
+  static const int MIN_TIME_BETWEEN_REPS_MS = 500; // Minimum time between reps
+
   bool mlNotReadyLogged = false; // Track if we've logged ML not ready
 
   // BLE scanning
@@ -181,6 +195,10 @@ class BLEService {
     currentSessionSets.clear();
     _currentSetsController.add([]);
 
+    // Reset rep counter for next session
+    reps = 0;
+    _emitMetrics();
+
     print("✓ Workout stopped. Duration: ${_formatDuration(sessionDuration)}");
   }
 
@@ -270,12 +288,14 @@ class BLEService {
 
                 // Reset counters
                 reps = 0;
-                lastAzInitialized = false;
-                goingUp = false;
-                repStart = null;
+                repState = RepState.IDLE;
+                magnitudeInitialized = false;
+                currentPeakValue = 0;
+                currentValleyValue = 999;
+                repStartTime = null;
                 lastRepTime = null;
                 imuBuffer.clear();
-                azBuffer.clear();
+                accelMagnitudeBuffer.clear();
                 currentExercise = "détection...";
                 currentConfidence = 0;
 
@@ -364,7 +384,8 @@ class BLEService {
   // --------------------------------------------------
   void onImuSample(double ax, double ay, double az, double gx, double gy, double gz) {
     // REP LOGIC - Always run, independent of ML
-    _processReps(az);
+    // Use all 3 acceleration axes for robust detection
+    _processReps(ax, ay, az);
 
     // IA BUFFER - Only if ML is ready
     if (aiReady) {
@@ -390,88 +411,130 @@ class BLEService {
     }
   }
 
-  double _smoothAz(double az) {
-    // Add new value to buffer
-    azBuffer.add(az);
+  // Calculate and smooth acceleration magnitude (total movement regardless of orientation)
+  double _smoothAccelMagnitude(double ax, double ay, double az) {
+    // Calculate magnitude: sqrt(ax² + ay² + az²)
+    // This represents total acceleration regardless of device orientation
+    final magnitude = math.sqrt(ax * ax + ay * ay + az * az);
+
+    // Add to smoothing buffer
+    accelMagnitudeBuffer.add(magnitude);
 
     // Keep only last N samples
-    if (azBuffer.length > smoothingWindow) {
-      azBuffer.removeAt(0);
+    if (accelMagnitudeBuffer.length > smoothingWindow) {
+      accelMagnitudeBuffer.removeAt(0);
     }
 
     // Return moving average
-    return azBuffer.reduce((a, b) => a + b) / azBuffer.length;
+    return accelMagnitudeBuffer.reduce((a, b) => a + b) / accelMagnitudeBuffer.length;
   }
 
-  void _processReps(double rawAz) {
-    // Apply smoothing filter to reduce noise
-    final az = _smoothAz(rawAz);
+  void _processReps(double ax, double ay, double az) {
+    // Calculate smoothed acceleration magnitude
+    final accelMag = _smoothAccelMagnitude(ax, ay, az);
 
-    // Initialize lastAz with first smoothed value
-    if (!lastAzInitialized) {
-      lastAz = az;
-      lastAzInitialized = true;
-      // Emit initial metrics to show UI
+    // Initialize on first sample
+    if (!magnitudeInitialized) {
+      lastAccelMagnitude = accelMag;
+      magnitudeInitialized = true;
       _emitMetrics();
-      print("🎯 Rep counter initialized (az baseline: ${az.toStringAsFixed(2)})");
+      print("🎯 Rep counter initialized (accel magnitude: ${accelMag.toStringAsFixed(2)} m/s²)");
       return;
     }
 
-    final delta = az - lastAz;
+    final now = DateTime.now();
 
-    // Detect upward movement (threshold: 2.5 m/s² - adjusted for smoothed data)
-    if (delta > 2.5 && !goingUp) {
-      goingUp = true;
-      repStart = DateTime.now();
-      print("⬆️  Going UP (az: ${az.toStringAsFixed(2)}, delta: ${delta.toStringAsFixed(2)})");
+    // STATE MACHINE for robust rep detection
+    switch (repState) {
+      case RepState.IDLE:
+        // Waiting for movement to start
+        if (accelMag > MOVEMENT_THRESHOLD) {
+          // Movement detected! Start tracking a potential rep
+          repState = RepState.MOVING;
+          repStartTime = now;
+          currentPeakValue = accelMag;
+          currentValleyValue = accelMag;
+          print("🏃 MOVEMENT started (mag: ${accelMag.toStringAsFixed(2)} m/s²)");
+        }
+        break;
+
+      case RepState.MOVING:
+        // Track peak (maximum acceleration during movement)
+        if (accelMag > currentPeakValue) {
+          currentPeakValue = accelMag;
+        }
+
+        // Detect when acceleration drops significantly = peak passed
+        if (accelMag < (currentPeakValue - 4.0) && accelMag < MOVEMENT_THRESHOLD) {
+          repState = RepState.PEAK_DETECTED;
+          currentValleyValue = accelMag;
+          print("⛰️  PEAK detected (${currentPeakValue.toStringAsFixed(2)} m/s²), now tracking valley...");
+        }
+        break;
+
+      case RepState.PEAK_DETECTED:
+        // Track valley (minimum acceleration after peak)
+        if (accelMag < currentValleyValue) {
+          currentValleyValue = accelMag;
+        }
+
+        // Check if movement complete (acceleration returns to baseline)
+        final amplitude = currentPeakValue - currentValleyValue;
+        final isMovementComplete = accelMag > (currentValleyValue + 2.0) ||
+                                    (now.difference(repStartTime!).inMilliseconds > 2000);
+
+        if (isMovementComplete) {
+          // Validate the rep
+          final duration = now.difference(repStartTime!).inMilliseconds;
+
+          // Check amplitude (must be significant movement)
+          if (amplitude < MIN_AMPLITUDE) {
+            print("⚠️  Movement too small, ignored (amplitude: ${amplitude.toStringAsFixed(2)} m/s², need ${MIN_AMPLITUDE})");
+            repState = RepState.IDLE;
+            break;
+          }
+
+          // Check duration (must be realistic timing)
+          if (duration < MIN_REP_DURATION_MS) {
+            print("⚠️  Rep too fast, ignored (${duration}ms, need >${MIN_REP_DURATION_MS}ms)");
+            repState = RepState.IDLE;
+            break;
+          }
+
+          // Check time since last rep (avoid double-counting)
+          if (lastRepTime != null && now.difference(lastRepTime!).inMilliseconds < MIN_TIME_BETWEEN_REPS_MS) {
+            print("⚠️  Too soon after last rep, ignored (${now.difference(lastRepTime!).inMilliseconds}ms)");
+            repState = RepState.IDLE;
+            break;
+          }
+
+          // ✅ VALID REP!
+          reps++;
+          lastRepTime = now;
+
+          // Track rep for current set
+          currentSetReps++;
+          currentSetRepDurations.add(duration);
+          lastRepInSetTime = now;
+
+          // Start/restart 30s timer to detect end of set
+          setEndTimer?.cancel();
+          setEndTimer = Timer(const Duration(seconds: 30), () {
+            print("⏱️  30s without reps - Finalizing set...");
+            _finalizeCurrentSet();
+          });
+
+          final tempo = _tempo(duration);
+          print("✅ REP #$reps COMPLETE! (amplitude: ${amplitude.toStringAsFixed(2)} m/s², tempo: $tempo, ${duration}ms) [Set: $currentSetReps reps]");
+          _emitMetrics(tempo: tempo);
+
+          // Reset for next rep
+          repState = RepState.IDLE;
+        }
+        break;
     }
 
-    // Detect downward movement = rep completed
-    if (goingUp && delta < -2.5) {
-      final now = DateTime.now();
-
-      // Check minimum time between reps (600ms minimum for realistic curl)
-      if (lastRepTime != null && now.difference(lastRepTime!).inMilliseconds < 600) {
-        print("⚠️  Rep too fast, ignored (${now.difference(lastRepTime!).inMilliseconds}ms)");
-        goingUp = false;
-        repStart = null;
-        lastAz = az;
-        return;
-      }
-
-      // Check minimum rep duration (400ms minimum)
-      final duration = now.difference(repStart!).inMilliseconds;
-      if (duration < 400) {
-        print("⚠️  Rep too short, ignored (${duration}ms)");
-        goingUp = false;
-        repStart = null;
-        lastAz = az;
-        return;
-      }
-
-      goingUp = false;
-      reps++;
-      lastRepTime = now;
-
-      // Track rep for current set
-      currentSetReps++;
-      currentSetRepDurations.add(duration);
-      lastRepInSetTime = now;
-
-      // Start/restart 30s timer to detect end of set
-      setEndTimer?.cancel();
-      setEndTimer = Timer(const Duration(seconds: 30), () {
-        print("⏱️  30s without reps - Finalizing set...");
-        _finalizeCurrentSet();
-      });
-
-      final tempo = _tempo(duration);
-      print("⬇️  Going DOWN - REP #$reps ✓ (tempo: $tempo, ${duration}ms) [Set: $currentSetReps reps]");
-      _emitMetrics(tempo: tempo);
-      repStart = null;
-    }
-
-    lastAz = az;
+    lastAccelMagnitude = accelMag;
   }
 
   String _tempo(int ms) {
