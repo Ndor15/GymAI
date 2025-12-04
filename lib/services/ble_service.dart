@@ -64,10 +64,10 @@ class BLEService {
   DateTime? repStartTime;
   DateTime? lastRepTime;
 
-  // Thresholds - AJUSTÉS pour ton capteur (baseline ~6.2 m/s² au repos)
-  static const double MOVEMENT_START_THRESHOLD = 6.8; // m/s² - movement starts
-  static const double MOVEMENT_END_THRESHOLD = 6.5; // m/s² - movement ends (hysteresis)
-  static const double MIN_PEAK_VALUE = 8.0; // m/s² - peak minimum pour compter
+  // Thresholds - Pour capteur normal (baseline ~11 m/s² au repos)
+  static const double MOVEMENT_START_THRESHOLD = 12.0; // m/s² - movement starts
+  static const double MOVEMENT_END_THRESHOLD = 11.5; // m/s² - movement ends (hysteresis)
+  static const double MIN_PEAK_VALUE = 14.0; // m/s² - peak minimum pour compter
   static const int MIN_REP_DURATION_MS = 200; // Minimum time for one rep
   static const int MAX_REP_DURATION_MS = 4000; // Maximum time for one rep
   static const int MIN_TIME_BETWEEN_REPS_MS = 350; // Minimum time between reps
