@@ -476,9 +476,17 @@ class BLEService {
       }
 
       // MOVING -> IDLE: Detect movement end
-      if (accelMag < MOVEMENT_END_THRESHOLD) {
+      // Nouvelle logique: fin détectée quand magnitude baisse de 3+ depuis le peak OU timeout 2s
+      final hasFallenFromPeak = accelMag < (currentPeakValue - 3.0);
+      final hasTimedOut = now.difference(repStartTime!).inMilliseconds > 2000;
+
+      if (hasFallenFromPeak || hasTimedOut) {
         // Movement ended, validate and count rep
         final duration = now.difference(repStartTime!).inMilliseconds;
+
+        if (hasTimedOut) {
+          print("⏱️  TIMEOUT 2s - Forcing END");
+        }
 
         print("🏁 END movement (mag: ${accelMag.toStringAsFixed(2)} m/s², peak was: ${currentPeakValue.toStringAsFixed(2)} m/s², duration: ${duration}ms)");
 
