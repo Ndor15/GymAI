@@ -64,19 +64,13 @@ class BLEService {
   DateTime? repStartTime;
   DateTime? lastRepTime;
 
-  // AUTO-CALIBRATION au démarrage
-  bool isCalibrated = false;
-  List<double> calibrationSamples = [];
-  double baselineMagnitude = 0;
-  static const int CALIBRATION_SAMPLES = 50; // 50 samples pour calibrer
-
-  // Thresholds dynamiques (calculés après calibrage)
-  double MOVEMENT_START_THRESHOLD = 12.0; // Sera ajusté
-  double MOVEMENT_END_THRESHOLD = 11.5; // Sera ajusté
-  double MIN_PEAK_VALUE = 14.0; // Sera ajusté
+  // Thresholds FIXES et TRÈS SENSIBLES (repos ~11 m/s²)
+  static const double MOVEMENT_START_THRESHOLD = 11.5; // Très sensible
+  static const double MOVEMENT_END_THRESHOLD = 11.2; // Hysteresis
+  static const double MIN_PEAK_VALUE = 12.5; // Peak bas pour compter facilement
   static const int MIN_REP_DURATION_MS = 200;
   static const int MAX_REP_DURATION_MS = 4000;
-  static const int MIN_TIME_BETWEEN_REPS_MS = 350;
+  static const int MIN_TIME_BETWEEN_REPS_MS = 300; // Très court
 
   // Debug counter
   int _sampleCount = 0;
@@ -123,12 +117,6 @@ class BLEService {
     workoutStartTime = DateTime.now();
     sessionDuration = Duration.zero;
     _workoutStateController.add(true);
-
-    // Reset calibration pour nouveau workout
-    isCalibrated = false;
-    calibrationSamples.clear();
-    baselineMagnitude = 0;
-    print("🔧 Calibrage automatique va démarrer (laisse l'haltère immobile 2-3 secondes)");
 
     // Start session timer (update every second)
     sessionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -457,36 +445,7 @@ class BLEService {
       lastAccelMagnitude = accelMag;
       magnitudeInitialized = true;
       _emitMetrics();
-      print("🎯 Rep counter initialized");
-      return;
-    }
-
-    // AUTO-CALIBRATION: Collecter 50 samples au repos pour déterminer baseline
-    if (!isCalibrated) {
-      calibrationSamples.add(accelMag);
-
-      if (calibrationSamples.length % 10 == 0) {
-        print("🔧 Calibrage en cours... ${calibrationSamples.length}/$CALIBRATION_SAMPLES (moyenne actuelle: ${(calibrationSamples.reduce((a, b) => a + b) / calibrationSamples.length).toStringAsFixed(2)} m/s²)");
-      }
-
-      if (calibrationSamples.length >= CALIBRATION_SAMPLES) {
-        // Calculer la baseline (moyenne des samples au repos)
-        baselineMagnitude = calibrationSamples.reduce((a, b) => a + b) / calibrationSamples.length;
-
-        // Définir les seuils dynamiquement
-        MOVEMENT_START_THRESHOLD = baselineMagnitude + 1.2; // +1.2 m/s² pour détecter mouvement
-        MOVEMENT_END_THRESHOLD = baselineMagnitude + 0.8;   // +0.8 m/s² pour retour repos
-        MIN_PEAK_VALUE = baselineMagnitude + 3.0;           // +3.0 m/s² minimum pour pic
-
-        isCalibrated = true;
-
-        print("✅ CALIBRAGE TERMINÉ!");
-        print("   Baseline: ${baselineMagnitude.toStringAsFixed(2)} m/s²");
-        print("   START seuil: ${MOVEMENT_START_THRESHOLD.toStringAsFixed(2)} m/s²");
-        print("   END seuil: ${MOVEMENT_END_THRESHOLD.toStringAsFixed(2)} m/s²");
-        print("   PEAK minimum: ${MIN_PEAK_VALUE.toStringAsFixed(2)} m/s²");
-        print("🎯 Prêt à compter les reps!");
-      }
+      print("🎯 Rep counter initialized (seuils: START=${MOVEMENT_START_THRESHOLD}, END=${MOVEMENT_END_THRESHOLD}, PEAK_MIN=${MIN_PEAK_VALUE})");
       return;
     }
 
@@ -495,7 +454,7 @@ class BLEService {
     // Log magnitude periodically for debugging (every 10 samples)
     _sampleCount++;
     if (_sampleCount % 10 == 0) {
-      print("📊 Magnitude: ${accelMag.toStringAsFixed(2)} m/s² [État: ${repState == RepState.IDLE ? 'IDLE' : 'MOVING'}] (baseline: ${baselineMagnitude.toStringAsFixed(2)}, seuil start: ${MOVEMENT_START_THRESHOLD.toStringAsFixed(2)})");
+      print("📊 Magnitude: ${accelMag.toStringAsFixed(2)} m/s² [État: ${repState == RepState.IDLE ? 'IDLE' : 'MOVING'}] (seuil START: $MOVEMENT_START_THRESHOLD, END: $MOVEMENT_END_THRESHOLD)");
     }
 
     // SIMPLIFIED STATE MACHINE - 2 states only
