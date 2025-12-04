@@ -19,6 +19,9 @@ class TrainingMetrics {
   });
 }
 
+// State machine for rep detection
+enum RepState { IDLE, MOVING, PEAK_DETECTED }
+
 class BLEService {
   // Singleton
   static final BLEService _instance = BLEService._internal();
@@ -47,7 +50,6 @@ class BLEService {
   double currentConfidence = 0;
 
   // State machine for rep detection
-  enum RepState { IDLE, MOVING, PEAK_DETECTED }
   RepState repState = RepState.IDLE;
 
   // Acceleration tracking (uses magnitude, not just z-axis)
