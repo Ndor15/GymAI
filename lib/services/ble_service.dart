@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'rep_ai.dart';
+import '../models/workout_models.dart';
+import 'workout_history_service.dart';
 
 class TrainingMetrics {
   final int reps;
@@ -71,6 +73,18 @@ class BLEService {
   final _workoutStateController = StreamController<bool>.broadcast();
   Stream<bool> get workoutStateStream => _workoutStateController.stream;
 
+  // SET TRACKING
+  List<WorkoutSet> currentSessionSets = [];
+  int currentSetReps = 0;
+  List<int> currentSetRepDurations = []; // durations in ms for current set
+  Timer? setEndTimer; // Timer to detect end of set (30s no reps)
+  DateTime? lastRepInSetTime;
+
+  final _currentSetsController = StreamController<List<WorkoutSet>>.broadcast();
+  Stream<List<WorkoutSet>> get currentSetsStream => _currentSetsController.stream;
+
+  final historyService = WorkoutHistoryService();
+
   // --------------------------------------------------
   // WORKOUT CONTROL
   // --------------------------------------------------
@@ -96,18 +110,50 @@ class BLEService {
     _scanLoop();
   }
 
-  void stopWorkout() {
+  void _finalizeCurrentSet() {
+    if (currentSetReps == 0) return;
+
+    // Calculate average tempo
+    final avgTempo = currentSetRepDurations.isEmpty
+        ? 1.0
+        : currentSetRepDurations.reduce((a, b) => a + b) /
+            currentSetRepDurations.length /
+            1000.0; // Convert ms to seconds
+
+    // Create WorkoutSet
+    final set = WorkoutSet(
+      exercise: currentExercise,
+      reps: currentSetReps,
+      averageTempo: avgTempo,
+      timestamp: DateTime.now(),
+    );
+
+    currentSessionSets.add(set);
+    _currentSetsController.add(List.from(currentSessionSets));
+
+    print("✅ Set completed: ${set.displayExercise} - $currentSetReps reps @ ${avgTempo.toStringAsFixed(1)}s/rep");
+
+    // Reset current set tracking
+    currentSetReps = 0;
+    currentSetRepDurations.clear();
+    lastRepInSetTime = null;
+  }
+
+  void stopWorkout() async {
     if (!isWorkoutActive) return;
 
     print("🛑 Stopping workout session...");
-    isWorkoutActive = false;
-    _workoutStateController.add(false);
 
-    // Stop session timer
+    // Finalize any ongoing set
+    _finalizeCurrentSet();
+
+    // Stop timers
     sessionTimer?.cancel();
     sessionTimer = null;
+    setEndTimer?.cancel();
+    setEndTimer = null;
 
-    // Stop BLE scan
+    // Stop BLE
     scanTimer?.cancel();
     scanTimer = null;
     FlutterBluePlus.stopScan();
@@ -116,6 +162,24 @@ class BLEService {
     if (isConnected && connectedDevice != null) {
       connectedDevice!.disconnect();
     }
+
+    // Save workout session to history
+    if (currentSessionSets.isNotEmpty && workoutStartTime != null) {
+      final session = WorkoutSession(
+        date: workoutStartTime!,
+        duration: sessionDuration,
+        sets: List.from(currentSessionSets),
+      );
+
+      await historyService.saveSession(session);
+      print("💾 Session saved: ${currentSessionSets.length} sets, ${session.totalReps} total reps");
+    }
+
+    // Reset state
+    isWorkoutActive = false;
+    _workoutStateController.add(false);
+    currentSessionSets.clear();
+    _currentSetsController.add([]);
 
     print("✓ Workout stopped. Duration: ${_formatDuration(sessionDuration)}");
   }
@@ -389,8 +453,20 @@ class BLEService {
       reps++;
       lastRepTime = now;
 
+      // Track rep for current set
+      currentSetReps++;
+      currentSetRepDurations.add(duration);
+      lastRepInSetTime = now;
+
+      // Start/restart 30s timer to detect end of set
+      setEndTimer?.cancel();
+      setEndTimer = Timer(const Duration(seconds: 30), () {
+        print("⏱️  30s without reps - Finalizing set...");
+        _finalizeCurrentSet();
+      });
+
       final tempo = _tempo(duration);
-      print("⬇️  Going DOWN - REP #$reps ✓ (tempo: $tempo, ${duration}ms)");
+      print("⬇️  Going DOWN - REP #$reps ✓ (tempo: $tempo, ${duration}ms) [Set: $currentSetReps reps]");
       _emitMetrics(tempo: tempo);
       repStart = null;
     }
