@@ -19,8 +19,8 @@ class TrainingMetrics {
   });
 }
 
-// State machine for rep detection
-enum RepState { IDLE, MOVING, PEAK_DETECTED }
+// State machine for rep detection (simplified to 2 states)
+enum RepState { IDLE, MOVING }
 
 class BLEService {
   // Singleton
@@ -65,10 +65,12 @@ class BLEService {
   DateTime? lastRepTime;
 
   // Thresholds - tuned to detect real reps while ignoring micro-movements
-  static const double MOVEMENT_THRESHOLD = 12.0; // m/s² - detects start of movement
-  static const double MIN_AMPLITUDE = 8.0; // m/s² - minimum peak-valley difference for valid rep
-  static const int MIN_REP_DURATION_MS = 300; // Minimum time for one rep
-  static const int MIN_TIME_BETWEEN_REPS_MS = 500; // Minimum time between reps
+  static const double MOVEMENT_START_THRESHOLD = 11.0; // m/s² - movement starts when going above
+  static const double MOVEMENT_END_THRESHOLD = 10.5; // m/s² - movement ends when going below (hysteresis)
+  static const double MIN_PEAK_VALUE = 12.5; // m/s² - peak must reach at least this for valid rep
+  static const int MIN_REP_DURATION_MS = 250; // Minimum time for one rep
+  static const int MAX_REP_DURATION_MS = 4000; // Maximum time for one rep
+  static const int MIN_TIME_BETWEEN_REPS_MS = 400; // Minimum time between reps
 
   bool mlNotReadyLogged = false; // Track if we've logged ML not ready
 
@@ -440,76 +442,62 @@ class BLEService {
       lastAccelMagnitude = accelMag;
       magnitudeInitialized = true;
       _emitMetrics();
-      print("🎯 Rep counter initialized (accel magnitude: ${accelMag.toStringAsFixed(2)} m/s²)");
+      print("🎯 Rep counter initialized (baseline: ${accelMag.toStringAsFixed(2)} m/s²)");
       return;
     }
 
     final now = DateTime.now();
 
-    // STATE MACHINE for robust rep detection
-    switch (repState) {
-      case RepState.IDLE:
-        // Waiting for movement to start
-        if (accelMag > MOVEMENT_THRESHOLD) {
-          // Movement detected! Start tracking a potential rep
-          repState = RepState.MOVING;
-          repStartTime = now;
-          currentPeakValue = accelMag;
-          currentValleyValue = accelMag;
-          print("🏃 MOVEMENT started (mag: ${accelMag.toStringAsFixed(2)} m/s²)");
+    // SIMPLIFIED STATE MACHINE - 2 states only
+    if (repState == RepState.IDLE) {
+      // IDLE -> MOVING: Detect movement start
+      if (accelMag > MOVEMENT_START_THRESHOLD) {
+        repState = RepState.MOVING;
+        repStartTime = now;
+        currentPeakValue = accelMag;
+        print("🏃 START movement (mag: ${accelMag.toStringAsFixed(2)} m/s²)");
+      }
+    } else {
+      // MOVING state: Track peak and detect end
+
+      // Track peak value during movement
+      if (accelMag > currentPeakValue) {
+        currentPeakValue = accelMag;
+        print("📈 New peak: ${currentPeakValue.toStringAsFixed(2)} m/s²");
+      }
+
+      // MOVING -> IDLE: Detect movement end
+      if (accelMag < MOVEMENT_END_THRESHOLD) {
+        // Movement ended, validate and count rep
+        final duration = now.difference(repStartTime!).inMilliseconds;
+
+        print("🏁 END movement (mag: ${accelMag.toStringAsFixed(2)} m/s², peak was: ${currentPeakValue.toStringAsFixed(2)} m/s², duration: ${duration}ms)");
+
+        // Validation checks
+        bool isValid = true;
+        String? rejectReason;
+
+        // Check 1: Peak must be high enough (significant movement)
+        if (currentPeakValue < MIN_PEAK_VALUE) {
+          isValid = false;
+          rejectReason = "Peak too low (${currentPeakValue.toStringAsFixed(2)} < $MIN_PEAK_VALUE m/s²)";
         }
-        break;
-
-      case RepState.MOVING:
-        // Track peak (maximum acceleration during movement)
-        if (accelMag > currentPeakValue) {
-          currentPeakValue = accelMag;
+        // Check 2: Duration must be realistic
+        else if (duration < MIN_REP_DURATION_MS) {
+          isValid = false;
+          rejectReason = "Too fast (${duration}ms < ${MIN_REP_DURATION_MS}ms)";
+        }
+        else if (duration > MAX_REP_DURATION_MS) {
+          isValid = false;
+          rejectReason = "Too slow (${duration}ms > ${MAX_REP_DURATION_MS}ms)";
+        }
+        // Check 3: Time since last rep (avoid double-counting)
+        else if (lastRepTime != null && now.difference(lastRepTime!).inMilliseconds < MIN_TIME_BETWEEN_REPS_MS) {
+          isValid = false;
+          rejectReason = "Too soon after last rep (${now.difference(lastRepTime!).inMilliseconds}ms < ${MIN_TIME_BETWEEN_REPS_MS}ms)";
         }
 
-        // Detect when acceleration drops significantly = peak passed
-        if (accelMag < (currentPeakValue - 4.0) && accelMag < MOVEMENT_THRESHOLD) {
-          repState = RepState.PEAK_DETECTED;
-          currentValleyValue = accelMag;
-          print("⛰️  PEAK detected (${currentPeakValue.toStringAsFixed(2)} m/s²), now tracking valley...");
-        }
-        break;
-
-      case RepState.PEAK_DETECTED:
-        // Track valley (minimum acceleration after peak)
-        if (accelMag < currentValleyValue) {
-          currentValleyValue = accelMag;
-        }
-
-        // Check if movement complete (acceleration returns to baseline)
-        final amplitude = currentPeakValue - currentValleyValue;
-        final isMovementComplete = accelMag > (currentValleyValue + 2.0) ||
-                                    (now.difference(repStartTime!).inMilliseconds > 2000);
-
-        if (isMovementComplete) {
-          // Validate the rep
-          final duration = now.difference(repStartTime!).inMilliseconds;
-
-          // Check amplitude (must be significant movement)
-          if (amplitude < MIN_AMPLITUDE) {
-            print("⚠️  Movement too small, ignored (amplitude: ${amplitude.toStringAsFixed(2)} m/s², need ${MIN_AMPLITUDE})");
-            repState = RepState.IDLE;
-            break;
-          }
-
-          // Check duration (must be realistic timing)
-          if (duration < MIN_REP_DURATION_MS) {
-            print("⚠️  Rep too fast, ignored (${duration}ms, need >${MIN_REP_DURATION_MS}ms)");
-            repState = RepState.IDLE;
-            break;
-          }
-
-          // Check time since last rep (avoid double-counting)
-          if (lastRepTime != null && now.difference(lastRepTime!).inMilliseconds < MIN_TIME_BETWEEN_REPS_MS) {
-            print("⚠️  Too soon after last rep, ignored (${now.difference(lastRepTime!).inMilliseconds}ms)");
-            repState = RepState.IDLE;
-            break;
-          }
-
+        if (isValid) {
           // ✅ VALID REP!
           reps++;
           lastRepTime = now;
@@ -527,13 +515,16 @@ class BLEService {
           });
 
           final tempo = _tempo(duration);
-          print("✅ REP #$reps COMPLETE! (amplitude: ${amplitude.toStringAsFixed(2)} m/s², tempo: $tempo, ${duration}ms) [Set: $currentSetReps reps]");
+          print("✅ REP #$reps COUNTED! (peak: ${currentPeakValue.toStringAsFixed(2)} m/s², tempo: $tempo, ${duration}ms) [Set: $currentSetReps]");
           _emitMetrics(tempo: tempo);
-
-          // Reset for next rep
-          repState = RepState.IDLE;
+        } else {
+          print("⚠️  Rep REJECTED: $rejectReason");
         }
-        break;
+
+        // Reset for next rep
+        repState = RepState.IDLE;
+        currentPeakValue = 0;
+      }
     }
 
     lastAccelMagnitude = accelMag;
