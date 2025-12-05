@@ -58,7 +58,7 @@ class _TrainingPageState extends State<TrainingPage>
       ),
       body: Column(
         children: [
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // Start/Stop Workout Button + Session Timer
           StreamBuilder<bool>(
@@ -110,7 +110,7 @@ class _TrainingPageState extends State<TrainingPage>
                       },
                     ),
 
-                  if (isActive) const SizedBox(height: 16),
+                  if (isActive) const SizedBox(height: 12),
 
                   // Start/Stop Button
                   GestureDetector(
@@ -167,7 +167,7 @@ class _TrainingPageState extends State<TrainingPage>
             },
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // Etat connexion / proximité
           StreamBuilder<bool>(
@@ -218,7 +218,7 @@ class _TrainingPageState extends State<TrainingPage>
             },
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // Current Sets Display
           StreamBuilder<List<dynamic>>(
@@ -346,7 +346,7 @@ class _TrainingPageState extends State<TrainingPage>
             },
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // Bloc principal: reps, tempo, exercice
           Expanded(
@@ -386,8 +386,8 @@ class _TrainingPageState extends State<TrainingPage>
                           );
                         },
                         child: Container(
-                          width: 200,
-                          height: 200,
+                          width: 170,
+                          height: 170,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: const SweepGradient(
@@ -419,15 +419,15 @@ class _TrainingPageState extends State<TrainingPage>
                                   "Reps",
                                   style: TextStyle(
                                     color: Colors.white70,
-                                    fontSize: 16,
+                                    fontSize: 14,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 2),
                                 Text(
                                   reps.toString(),
                                   style: const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 52,
+                                    fontSize: 48,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -437,7 +437,7 @@ class _TrainingPageState extends State<TrainingPage>
                         ),
                       ),
 
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 20),
 
                       // Tempo chip
                       AnimatedContainer(
@@ -474,7 +474,7 @@ class _TrainingPageState extends State<TrainingPage>
                         ),
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 12),
 
                       // Exercice détecté
                       Column(
