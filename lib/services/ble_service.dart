@@ -64,13 +64,13 @@ class BLEService {
   DateTime? repStartTime;
   DateTime? lastRepTime;
 
-  // Thresholds FIXES et ULTRA SENSIBLES (repos ~11 m/s²)
-  static const double MOVEMENT_START_THRESHOLD = 11.5; // Détecte mouvement
-  static const double MOVEMENT_END_THRESHOLD = 11.2; // Retour repos
-  static const double MIN_PEAK_VALUE = 11.8; // TRÈS BAS - compte presque tout!
-  static const int MIN_REP_DURATION_MS = 200;
+  // Thresholds OPTIMISÉS pour éviter micro-mouvements (repos ~11 m/s²)
+  static const double MOVEMENT_START_THRESHOLD = 12.5; // Nécessite accélération significative
+  static const double MOVEMENT_END_THRESHOLD = 11.5; // Retour proche du repos
+  static const double MIN_PEAK_VALUE = 14.0; // Pic significatif requis (3 m/s² au-dessus repos)
+  static const int MIN_REP_DURATION_MS = 300; // Minimum 300ms pour éviter faux positifs
   static const int MAX_REP_DURATION_MS = 4000;
-  static const int MIN_TIME_BETWEEN_REPS_MS = 300; // Très court
+  static const int MIN_TIME_BETWEEN_REPS_MS = 400; // Éviter doubles comptages
 
   // Debug counter
   int _sampleCount = 0;
@@ -158,6 +158,11 @@ class BLEService {
     currentSetReps = 0;
     currentSetRepDurations.clear();
     lastRepInSetTime = null;
+
+    // Reset rep counter for next set
+    reps = 0;
+    _emitMetrics();
+    print("🔄 Rep counter reset to 0 for next set");
   }
 
   void stopWorkout() async {
