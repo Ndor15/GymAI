@@ -234,6 +234,9 @@ class _TrainingPageState extends State<TrainingPage>
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 24),
                 padding: const EdgeInsets.all(16),
+                constraints: const BoxConstraints(
+                  maxHeight: 140, // Limite la hauteur pour éviter overflow
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(16),
@@ -264,8 +267,7 @@ class _TrainingPageState extends State<TrainingPage>
                       ],
                     ),
                     const SizedBox(height: 12),
-                    SizedBox(
-                      height: 80,
+                    Flexible(
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: sets.length,
