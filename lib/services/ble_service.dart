@@ -104,6 +104,10 @@ class BLEService {
   final _currentSetsController = StreamController<List<WorkoutSet>>.broadcast();
   Stream<List<WorkoutSet>> get currentSetsStream => _currentSetsController.stream;
 
+  // Stream for current set in progress (not finalized yet)
+  final _currentSetRepsController = StreamController<int>.broadcast();
+  Stream<int> get currentSetRepsStream => _currentSetRepsController.stream;
+
   final historyService = WorkoutHistoryService();
 
   // --------------------------------------------------
@@ -158,6 +162,7 @@ class BLEService {
     currentSetReps = 0;
     currentSetRepDurations.clear();
     lastRepInSetTime = null;
+    _currentSetRepsController.add(0); // Notify UI
 
     // Reset rep counter for next set
     reps = 0;
@@ -528,6 +533,7 @@ class BLEService {
           currentSetReps++;
           currentSetRepDurations.add(duration);
           lastRepInSetTime = now;
+          _currentSetRepsController.add(currentSetReps); // Notify UI
 
           // Start/restart 30s timer to detect end of set
           setEndTimer?.cancel();
