@@ -108,6 +108,10 @@ class BLEService {
   final _currentSetRepsController = StreamController<int>.broadcast();
   Stream<int> get currentSetRepsStream => _currentSetRepsController.stream;
 
+  // Stream to notify when session is saved
+  final _sessionSavedController = StreamController<WorkoutSession>.broadcast();
+  Stream<WorkoutSession> get sessionSavedStream => _sessionSavedController.stream;
+
   final historyService = WorkoutHistoryService();
 
   // --------------------------------------------------
@@ -204,6 +208,11 @@ class BLEService {
 
       await historyService.saveSession(session);
       print("💾 Session saved: ${currentSessionSets.length} sets, ${session.totalReps} total reps");
+
+      // Notify UI that session was saved
+      _sessionSavedController.add(session);
+    } else {
+      print("⚠️  No sets to save (currentSessionSets: ${currentSessionSets.length})");
     }
 
     // Reset state

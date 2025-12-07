@@ -124,7 +124,62 @@ class _HistoryPageState extends State<HistoryPage> {
               fontSize: 14,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // Global stats summary
+          if (_sessions.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF5C32E), Color(0xFFFFA500)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '📊 Tes stats globales',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildGlobalStat(
+                          'Total reps',
+                          _sessions.fold(0, (sum, s) => sum + s.totalReps).toString(),
+                          Icons.fitness_center,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildGlobalStat(
+                          'Total sets',
+                          _sessions.fold(0, (sum, s) => sum + s.sets.length).toString(),
+                          Icons.format_list_numbered,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildGlobalStat(
+                          'Record',
+                          _sessions.map((s) => s.totalReps).reduce((a, b) => a > b ? a : b).toString(),
+                          Icons.emoji_events,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
           ..._sessions.map((session) => _buildSessionCard(session)),
         ],
       ),
@@ -132,6 +187,16 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget _buildSessionCard(WorkoutSession session) {
+    // Calculate additional stats
+    final exerciseGroups = <String, int>{};
+    for (var set in session.sets) {
+      exerciseGroups[set.exercise] = (exerciseGroups[set.exercise] ?? 0) + 1;
+    }
+    final avgTempo = session.sets.isEmpty
+        ? 0.0
+        : session.sets.map((s) => s.averageTempo).reduce((a, b) => a + b) / session.sets.length;
+    final maxReps = session.sets.isEmpty ? 0 : session.sets.map((s) => s.reps).reduce((a, b) => a > b ? a : b);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -220,6 +285,80 @@ class _HistoryPageState extends State<HistoryPage> {
           iconColor: const Color(0xFFF5C32E),
           collapsedIconColor: Colors.white.withOpacity(0.6),
           children: [
+            // Stats summary
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF101010),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.analytics_outlined,
+                        color: Color(0xFFF5C32E),
+                        size: 16,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Statistiques',
+                        style: TextStyle(
+                          color: Color(0xFFF5C32E),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatTile(
+                          'Total reps',
+                          session.totalReps.toString(),
+                          Icons.repeat,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildStatTile(
+                          'Meilleur set',
+                          '$maxReps reps',
+                          Icons.star,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatTile(
+                          'Tempo moyen',
+                          '${avgTempo.toStringAsFixed(1)}s',
+                          Icons.speed,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildStatTile(
+                          'Exercices',
+                          exerciseGroups.length.toString(),
+                          Icons.fitness_center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Sets detail
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -238,7 +377,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Séries (${session.sets.length})',
+                        'Séries détaillées (${session.sets.length})',
                         style: const TextStyle(
                           color: Color(0xFFF5C32E),
                           fontWeight: FontWeight.w600,
@@ -381,5 +520,83 @@ class _HistoryPageState extends State<HistoryPage> {
       await _historyService.clearAll();
       _loadHistory();
     }
+  }
+
+  Widget _buildGlobalStat(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: Colors.black,
+            size: 20,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.black87,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatTile(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: const Color(0xFFF5C32E),
+            size: 20,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.6),
+              fontSize: 11,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
   }
 }
