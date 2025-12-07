@@ -454,7 +454,10 @@ class BLEService {
   // --------------------------------------------------
   void _onDataReceived(List<int> bytes) {
     final text = String.fromCharCodes(bytes);
-    print("📦 BLE data received: $text");
+    // Only log occasionally to reduce lag
+    if (_sampleCount % 50 == 0) {
+      print("📦 BLE data: $text");
+    }
 
     // ex: ax=1.23;ay=-0.1;az=9.81;gx=0.04;gy=0.01;gz=0.0
     try {
@@ -467,7 +470,6 @@ class BLEService {
       double gy = double.parse(parts[4].split("=")[1]);
       double gz = double.parse(parts[5].split("=")[1]);
 
-      print("✓ IMU: ax=$ax ay=$ay az=$az gx=$gx gy=$gy gz=$gz");
       onImuSample(ax, ay, az, gx, gy, gz);
     } catch (e) {
       print("❌ Invalid IMU packet: $text (error: $e)");
@@ -538,11 +540,11 @@ class BLEService {
     }
 
     final now = DateTime.now();
-
-    // Log magnitude periodically for debugging (every 10 samples)
     _sampleCount++;
-    if (_sampleCount % 10 == 0) {
-      print("📊 Magnitude: ${accelMag.toStringAsFixed(2)} m/s² [État: ${repState == RepState.IDLE ? 'IDLE' : 'MOVING'}] (seuil START: $MOVEMENT_START_THRESHOLD, END: $MOVEMENT_END_THRESHOLD)");
+
+    // Log magnitude periodically for debugging (every 100 samples to reduce lag)
+    if (_sampleCount % 100 == 0) {
+      print("📊 Mag: ${accelMag.toStringAsFixed(2)} m/s² [${repState == RepState.IDLE ? 'IDLE' : 'MOVING'}]");
     }
 
     // SIMPLIFIED STATE MACHINE - 2 states only
@@ -552,7 +554,7 @@ class BLEService {
         repState = RepState.MOVING;
         repStartTime = now;
         currentPeakValue = accelMag;
-        print("🏃 START movement (mag: ${accelMag.toStringAsFixed(2)} m/s²)");
+        // Log removed to reduce lag
       }
     } else {
       // MOVING state: Track peak and detect end
@@ -560,7 +562,7 @@ class BLEService {
       // Track peak value during movement
       if (accelMag > currentPeakValue) {
         currentPeakValue = accelMag;
-        print("📈 New peak: ${currentPeakValue.toStringAsFixed(2)} m/s²");
+        // Log removed to reduce lag
       }
 
       // MOVING -> IDLE: Detect movement end
@@ -572,11 +574,7 @@ class BLEService {
         // Movement ended, validate and count rep
         final duration = now.difference(repStartTime!).inMilliseconds;
 
-        if (hasTimedOut) {
-          print("⏱️  TIMEOUT 2s - Forcing END");
-        }
-
-        print("🏁 END movement (mag: ${accelMag.toStringAsFixed(2)} m/s², peak was: ${currentPeakValue.toStringAsFixed(2)} m/s², duration: ${duration}ms)");
+        // Logs removed to reduce lag
 
         // Validation checks
         bool isValid = true;
