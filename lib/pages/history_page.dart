@@ -48,33 +48,59 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.fitness_center,
-            size: 80,
-            color: Colors.white.withOpacity(0.3),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            "Aucune séance enregistrée",
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+    return RefreshIndicator(
+      onRefresh: _loadHistory,
+      color: const Color(0xFFF5C32E),
+      backgroundColor: const Color(0xFF101010),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height - 100,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.fitness_center,
+                  size: 80,
+                  color: Colors.white.withOpacity(0.3),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  "Aucune séance enregistrée",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Commence ton premier workout !",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.4),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Icon(
+                  Icons.arrow_downward,
+                  size: 24,
+                  color: Colors.white.withOpacity(0.3),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Tire pour rafraîchir",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.4),
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            "Commence ton premier workout !",
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.4),
-              fontSize: 14,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
