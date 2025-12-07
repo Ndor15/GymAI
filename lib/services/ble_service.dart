@@ -84,7 +84,10 @@ class BLEService {
 
   // WORKOUT SESSION
   bool isWorkoutActive = false;
+  bool isWorkoutPaused = false;
   DateTime? workoutStartTime;
+  DateTime? pauseStartTime;
+  Duration pausedDuration = Duration.zero; // Total time paused
   Timer? sessionTimer;
   Duration sessionDuration = Duration.zero;
 
@@ -117,19 +120,83 @@ class BLEService {
   // --------------------------------------------------
   // WORKOUT CONTROL
   // --------------------------------------------------
+  // Manual entry of workout set
+  void addManualSet({
+    required String exercise,
+    required int reps,
+    double? weight,
+    String? equipment,
+  }) {
+    if (!isWorkoutActive) {
+      print("⚠️  Cannot add manual set: workout not active");
+      return;
+    }
+
+    final set = WorkoutSet(
+      exercise: exercise,
+      reps: reps,
+      averageTempo: 0, // No tempo for manual entry
+      timestamp: DateTime.now(),
+      weight: weight,
+      equipment: equipment,
+      isManual: true,
+    );
+
+    currentSessionSets.add(set);
+    _currentSetsController.add(List.from(currentSessionSets));
+
+    print("✅ Manual set added: $exercise - $reps reps${weight != null ? ' @ ${weight}kg' : ''}${equipment != null ? ' ($equipment)' : ''}");
+  }
+
+  void pauseWorkout() {
+    if (!isWorkoutActive || isWorkoutPaused) return;
+
+    print("⏸️  Pausing workout session...");
+    isWorkoutPaused = true;
+    pauseStartTime = DateTime.now();
+
+    // Stop the session timer
+    sessionTimer?.cancel();
+    sessionTimer = null;
+  }
+
+  void resumeWorkout() {
+    if (!isWorkoutActive || !isWorkoutPaused) return;
+
+    print("▶️  Resuming workout session...");
+
+    // Calculate paused duration
+    if (pauseStartTime != null) {
+      pausedDuration += DateTime.now().difference(pauseStartTime!);
+      pauseStartTime = null;
+    }
+
+    isWorkoutPaused = false;
+
+    // Restart session timer
+    sessionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (workoutStartTime != null) {
+        sessionDuration = DateTime.now().difference(workoutStartTime!) - pausedDuration;
+        _sessionDurationController.add(sessionDuration);
+      }
+    });
+  }
+
   void startWorkout() {
     if (isWorkoutActive) return;
 
     print("🏋️ Starting workout session...");
     isWorkoutActive = true;
+    isWorkoutPaused = false;
     workoutStartTime = DateTime.now();
+    pausedDuration = Duration.zero;
     sessionDuration = Duration.zero;
     _workoutStateController.add(true);
 
     // Start session timer (update every second)
     sessionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (workoutStartTime != null) {
-        sessionDuration = DateTime.now().difference(workoutStartTime!);
+        sessionDuration = DateTime.now().difference(workoutStartTime!) - pausedDuration;
         _sessionDurationController.add(sessionDuration);
       }
     });
@@ -217,6 +284,8 @@ class BLEService {
 
     // Reset state
     isWorkoutActive = false;
+    isWorkoutPaused = false;
+    pausedDuration = Duration.zero;
     _workoutStateController.add(false);
     currentSessionSets.clear();
     _currentSetsController.add([]);

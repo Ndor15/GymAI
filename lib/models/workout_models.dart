@@ -1,14 +1,22 @@
 class WorkoutSet {
-  final String exercise; // curl_biceps, curl_marteau
+  final String exercise; // curl_biceps, curl_marteau, bench_press, etc.
   final int reps;
   final double averageTempo; // Temps moyen par rep en secondes
   final DateTime timestamp;
+
+  // Optional fields for manual entry
+  final double? weight; // Poids en kg (optionnel)
+  final String? equipment; // Machine/équipement (optionnel)
+  final bool isManual; // true si ajouté manuellement
 
   WorkoutSet({
     required this.exercise,
     required this.reps,
     required this.averageTempo,
     required this.timestamp,
+    this.weight,
+    this.equipment,
+    this.isManual = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -16,6 +24,9 @@ class WorkoutSet {
         'reps': reps,
         'averageTempo': averageTempo,
         'timestamp': timestamp.toIso8601String(),
+        if (weight != null) 'weight': weight,
+        if (equipment != null) 'equipment': equipment,
+        'isManual': isManual,
       };
 
   factory WorkoutSet.fromJson(Map<String, dynamic> json) => WorkoutSet(
@@ -23,6 +34,9 @@ class WorkoutSet {
         reps: json['reps'] as int,
         averageTempo: json['averageTempo'] as double,
         timestamp: DateTime.parse(json['timestamp'] as String),
+        weight: json['weight'] as double?,
+        equipment: json['equipment'] as String?,
+        isManual: json['isManual'] as bool? ?? false,
       );
 
   String get displayExercise {

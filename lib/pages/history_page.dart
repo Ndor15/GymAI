@@ -428,13 +428,34 @@ class _HistoryPageState extends State<HistoryPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  set.displayExercise,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      set.displayExercise,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    if (set.isManual)
+                                      Container(
+                                        margin: const EdgeInsets.only(left: 6),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF5C32E).withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text(
+                                          'Manuel',
+                                          style: TextStyle(
+                                            color: Color(0xFFF5C32E),
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                                 const SizedBox(height: 4),
                                 Row(
@@ -452,22 +473,61 @@ class _HistoryPageState extends State<HistoryPage> {
                                         fontSize: 12,
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Icon(
-                                      Icons.speed,
-                                      color: Colors.white.withOpacity(0.6),
-                                      size: 12,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      set.formattedTempo,
-                                      style: TextStyle(
+                                    if (set.weight != null) ...[
+                                      const SizedBox(width: 12),
+                                      Icon(
+                                        Icons.fitness_center,
                                         color: Colors.white.withOpacity(0.6),
-                                        fontSize: 12,
+                                        size: 12,
                                       ),
-                                    ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${set.weight}kg',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.6),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                    if (!set.isManual) ...[
+                                      const SizedBox(width: 12),
+                                      Icon(
+                                        Icons.speed,
+                                        color: Colors.white.withOpacity(0.6),
+                                        size: 12,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        set.formattedTempo,
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.6),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
+                                if (set.equipment != null) ...[
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.build_circle_outlined,
+                                        color: Colors.white.withOpacity(0.6),
+                                        size: 12,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        set.equipment!,
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.6),
+                                          fontSize: 11,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
                           ),

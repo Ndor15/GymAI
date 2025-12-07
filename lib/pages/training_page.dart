@@ -75,6 +75,157 @@ class _TrainingPageState extends State<TrainingPage>
     return Colors.grey;
   }
 
+  void _showManualEntryDialog() {
+    final exerciseController = TextEditingController();
+    final repsController = TextEditingController();
+    final weightController = TextEditingController();
+    final equipmentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF101010),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Ajouter exercice manuel',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: exerciseController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Exercice *',
+                  labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                  hintText: 'Ex: Développé couché',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFF5C32E)),
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: repsController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Reps *',
+                  labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                  hintText: 'Ex: 10',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFF5C32E)),
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: weightController,
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Poids (kg)',
+                  labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                  hintText: 'Ex: 50',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFF5C32E)),
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: equipmentController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Machine/Équipement',
+                  labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                  hintText: 'Ex: Smith machine',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFF5C32E)),
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Annuler',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF5C32E),
+              foregroundColor: Colors.black,
+            ),
+            onPressed: () {
+              final exercise = exerciseController.text.trim();
+              final reps = int.tryParse(repsController.text.trim());
+              final weight = double.tryParse(weightController.text.trim());
+              final equipment = equipmentController.text.trim();
+
+              if (exercise.isEmpty || reps == null || reps <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Exercice et reps sont requis'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              ble.addManualSet(
+                exercise: exercise,
+                reps: reps,
+                weight: weight,
+                equipment: equipment.isEmpty ? null : equipment,
+              );
+
+              Navigator.pop(context);
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('✅ $exercise ajouté: $reps reps'),
+                  backgroundColor: const Color(0xFF2E7D32),
+                ),
+              );
+            },
+            child: const Text('Ajouter'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -147,57 +298,187 @@ class _TrainingPageState extends State<TrainingPage>
 
                   if (isActive) const SizedBox(height: 12),
 
-                  // Start/Stop Button
-                  GestureDetector(
-                    onTap: () {
-                      if (isActive) {
-                        ble.stopWorkout();
-                      } else {
-                        ble.startWorkout();
-                      }
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 24),
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        gradient: LinearGradient(
-                          colors: isActive
-                              ? [Colors.red.shade400, Colors.red.shade600]
-                              : [const Color(0xFFF5C32E), const Color(0xFFFFA500)],
+                  // Workout Control Buttons
+                  if (!isActive)
+                    // START button
+                    GestureDetector(
+                      onTap: () => ble.startWorkout(),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 24),
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFF5C32E), Color(0xFFFFA500)],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFF5C32E).withOpacity(0.3),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                          ],
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (isActive ? Colors.red : const Color(0xFFF5C32E))
-                                .withOpacity(0.3),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                          ),
-                        ],
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.play_arrow, color: Colors.black, size: 24),
+                            SizedBox(width: 12),
+                            Text(
+                              "START WORKOUT",
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isActive ? Icons.stop : Icons.play_arrow,
-                            color: Colors.black,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            isActive ? "STOP WORKOUT" : "START WORKOUT",
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.2,
+                    )
+                  else
+                    // PAUSE/RESUME + STOP buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // PAUSE/RESUME button
+                        GestureDetector(
+                          onTap: () {
+                            if (ble.isWorkoutPaused) {
+                              ble.resumeWorkout();
+                            } else {
+                              ble.pauseWorkout();
+                            }
+                            setState(() {});
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(999),
+                              gradient: LinearGradient(
+                                colors: ble.isWorkoutPaused
+                                    ? [const Color(0xFF4CAF50), const Color(0xFF66BB6A)]
+                                    : [const Color(0xFFFFA726), const Color(0xFFFF9800)],
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (ble.isWorkoutPaused ? Colors.green : Colors.orange)
+                                      .withOpacity(0.3),
+                                  blurRadius: 15,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  ble.isWorkoutPaused ? Icons.play_arrow : Icons.pause,
+                                  color: Colors.black,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  ble.isWorkoutPaused ? "RESUME" : "PAUSE",
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 12),
+                        // STOP button
+                        GestureDetector(
+                          onTap: () => ble.stopWorkout(),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(999),
+                              gradient: LinearGradient(
+                                colors: [Colors.red.shade400, Colors.red.shade600],
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.red.withOpacity(0.3),
+                                  blurRadius: 15,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.stop, color: Colors.black, size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  "STOP",
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              );
+            },
+          ),
+
+          const SizedBox(height: 12),
+
+          // Manual entry button (only when workout is active)
+          StreamBuilder<bool>(
+            stream: ble.workoutStateStream,
+            initialData: false,
+            builder: (context, snapshot) {
+              final isActive = snapshot.data ?? false;
+              if (!isActive) return const SizedBox.shrink();
+
+              return GestureDetector(
+                onTap: () => _showManualEntryDialog(),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFF5C32E).withOpacity(0.5),
+                      width: 1,
                     ),
                   ),
-                ],
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.add_circle_outline,
+                        color: Color(0xFFF5C32E),
+                        size: 18,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Ajouter exercice manuel',
+                        style: TextStyle(
+                          color: Color(0xFFF5C32E),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               );
             },
           ),
