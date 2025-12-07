@@ -27,9 +27,9 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        child: pages[index],
+      body: IndexedStack(
+        index: index,
+        children: pages,
       ),
 
       bottomNavigationBar: Container(

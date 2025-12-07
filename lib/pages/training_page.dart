@@ -81,7 +81,7 @@ class _TrainingPageState extends State<TrainingPage>
 
                         return Container(
                           margin: const EdgeInsets.symmetric(horizontal: 24),
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.05),
                             borderRadius: BorderRadius.circular(12),
@@ -92,14 +92,14 @@ class _TrainingPageState extends State<TrainingPage>
                               const Icon(
                                 Icons.timer_outlined,
                                 color: Color(0xFFF5C32E),
-                                size: 24,
+                                size: 20,
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               Text(
                                 "$minutes:$seconds",
                                 style: const TextStyle(
                                   color: Color(0xFFF5C32E),
-                                  fontSize: 28,
+                                  fontSize: 24,
                                   fontWeight: FontWeight.w700,
                                   fontFeatures: [FontFeature.tabularFigures()],
                                 ),
@@ -233,9 +233,9 @@ class _TrainingPageState extends State<TrainingPage>
 
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 24),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 constraints: const BoxConstraints(
-                  maxHeight: 140, // Limite la hauteur pour éviter overflow
+                  maxHeight: 110, // Limite la hauteur pour éviter overflow
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.05),
