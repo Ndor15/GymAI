@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'pages/training_page.dart';
+import 'pages/program_page.dart';
 import 'pages/history_page.dart';
 import 'pages/account_page.dart';
+import 'services/ble_service.dart';
 import 'theme/app_theme.dart';
 
 class AppShell extends StatefulWidget {
@@ -13,12 +15,20 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int index = 0;
+  final BLEService bleService = BLEService();
 
-  final pages = const [
-    TrainingPage(),
-    HistoryPage(),
-    AccountPage(),
-  ];
+  late final List<Widget> pages;
+
+  @override
+  void initState() {
+    super.initState();
+    pages = [
+      const TrainingPage(),
+      ProgramPage(bleService: bleService),
+      const HistoryPage(),
+      const AccountPage(),
+    ];
+  }
 
   void changePage(int i) {
     setState(() => index = i);
@@ -56,6 +66,10 @@ class _AppShellState extends State<AppShell> {
             BottomNavigationBarItem(
               icon: Icon(Icons.fitness_center),
               label: "Training",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.assignment),
+              label: "Programme",
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.history),

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:gymai/services/ble_service.dart';
 import 'package:gymai/services/workout_history_service.dart';
 import 'package:gymai/models/workout_models.dart';
+import 'package:gymai/models/program_models.dart';
+import 'package:gymai/services/program_service.dart';
 
 class TrainingPage extends StatefulWidget {
   const TrainingPage({super.key});
@@ -28,10 +30,15 @@ class _TrainingPageState extends State<TrainingPage>
   // Recent sessions
   List<WorkoutSession> _recentSessions = [];
 
+  // Guided mode
+  ActiveProgram? _activeProgram;
+  bool _isGuidedMode = false;
+
   @override
   void initState() {
     super.initState();
     _loadRecentSessions();
+    _loadActiveProgram();
 
     pulseController = AnimationController(
       vsync: this,
@@ -43,6 +50,12 @@ class _TrainingPageState extends State<TrainingPage>
       if (sets.isNotEmpty && lastSetTime != sets.last.timestamp) {
         _startRestTimer();
         lastSetTime = sets.last.timestamp;
+
+        // In guided mode, auto-advance when reps detected match target
+        if (_isGuidedMode && _activeProgram != null) {
+          final lastSet = sets.last;
+          _completeCurrentSet(lastSet.reps);
+        }
       }
     });
 
@@ -88,6 +101,74 @@ class _TrainingPageState extends State<TrainingPage>
     if (mounted) {
       setState(() {
         _recentSessions = sessions.take(3).toList();
+      });
+    }
+  }
+
+  Future<void> _loadActiveProgram() async {
+    final program = await ProgramService.loadActiveProgram();
+    if (mounted) {
+      setState(() {
+        _activeProgram = program;
+        _isGuidedMode = program != null;
+      });
+    }
+  }
+
+  Future<void> _completeCurrentSet(int detectedReps) async {
+    if (_activeProgram == null) return;
+
+    final currentExercise = _activeProgram!.currentExercise;
+
+    // Check if set is completed (within 80% of target)
+    if (ProgramService.isSetCompleted(_activeProgram!, detectedReps)) {
+      // Add the set to workout
+      ble.addManualSet(
+        exercise: currentExercise.name,
+        reps: detectedReps,
+        weight: null,
+        equipment: null,
+      );
+
+      // Advance to next set
+      final updatedProgram = ProgramService.nextSet(_activeProgram!);
+      await ProgramService.saveActiveProgram(updatedProgram);
+
+      if (mounted) {
+        setState(() {
+          _activeProgram = updatedProgram;
+        });
+
+        // Show rest timer for recommended rest
+        if (_activeProgram!.currentSet <= currentExercise.sets) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Série ${_activeProgram!.currentSet - 1}/${currentExercise.sets} complétée ! Repos ${currentExercise.restSeconds}s'),
+              backgroundColor: const Color(0xFF2E7D32),
+              duration: Duration(seconds: currentExercise.restSeconds),
+            ),
+          );
+        } else {
+          // Moved to next exercise
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Exercice terminé ! Passe au suivant'),
+              backgroundColor: Color(0xFFF5C32E),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _exitGuidedMode() async {
+    await ProgramService.clearActiveProgram();
+    if (mounted) {
+      setState(() {
+        _activeProgram = null;
+        _isGuidedMode = false;
       });
     }
   }
@@ -879,6 +960,12 @@ class _TrainingPageState extends State<TrainingPage>
   }
 
   Widget _buildInactiveView() {
+    // Guided mode: show program preview
+    if (_isGuidedMode && _activeProgram != null) {
+      return _buildGuidedModePreview();
+    }
+
+    // Normal mode: show start button
     return Column(
       children: [
         Expanded(
@@ -1547,9 +1634,11 @@ class _TrainingPageState extends State<TrainingPage>
 
         const SizedBox(height: 12),
 
-        // Main reps display
+        // Main reps display (or guided mode display)
         Expanded(
-          child: StreamBuilder<TrainingMetrics>(
+          child: _isGuidedMode && _activeProgram != null
+              ? _buildGuidedModeActiveView()
+              : StreamBuilder<TrainingMetrics>(
             stream: ble.metricsStream,
             builder: (context, snapshot) {
               final metrics = snapshot.data;
@@ -1737,6 +1826,560 @@ class _TrainingPageState extends State<TrainingPage>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildGuidedModePreview() {
+    final currentExercise = _activeProgram!.currentExercise;
+    final currentDay = _activeProgram!.currentDay;
+    final progress = ProgramService.getDayProgress(_activeProgram!);
+
+    // Find exercise visual data
+    final exerciseData = _exercises.firstWhere(
+      (ex) => ex['name'] == currentExercise.name,
+      orElse: () => _exercises.last, // default to 'Autre'
+    );
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Program header
+          Row(
+            children: [
+              const Icon(Icons.list_alt, color: Color(0xFFF5C32E), size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _activeProgram!.program.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      currentDay.name,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      backgroundColor: const Color(0xFF1A1A1A),
+                      title: const Text(
+                        'Quitter le programme ?',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      content: const Text(
+                        'Tu perdras ta progression actuelle.',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Annuler'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text(
+                            'Quitter',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    _exitGuidedMode();
+                  }
+                },
+                icon: const Icon(Icons.close, color: Colors.white54),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Progress bar
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Progression de la séance',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '${(progress * 100).toInt()}%',
+                    style: const TextStyle(
+                      color: Color(0xFFF5C32E),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 8,
+                  backgroundColor: Colors.white.withOpacity(0.1),
+                  valueColor: const AlwaysStoppedAnimation(Color(0xFFF5C32E)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+
+          // Current exercise card
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  (exerciseData['color'] as Color).withOpacity(0.3),
+                  (exerciseData['color'] as Color).withOpacity(0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: exerciseData['color'] as Color,
+                width: 2,
+              ),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: (exerciseData['color'] as Color).withOpacity(0.3),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          exerciseData['icon'] as String,
+                          style: const TextStyle(fontSize: 40),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Prochain exercice',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            currentExercise.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildExerciseStat(
+                        '📊',
+                        '${currentExercise.sets} séries',
+                        exerciseData['color'] as Color,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildExerciseStat(
+                        '🔄',
+                        '${currentExercise.reps} reps',
+                        exerciseData['color'] as Color,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildExerciseStat(
+                        '⏱️',
+                        '${currentExercise.restSeconds}s',
+                        exerciseData['color'] as Color,
+                      ),
+                    ),
+                  ],
+                ),
+                if (currentExercise.notes != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.lightbulb_outline,
+                          color: Color(0xFFF5C32E),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            currentExercise.notes!,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Remaining exercises
+          const Text(
+            'Suite de la séance',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...currentDay.exercises
+              .asMap()
+              .entries
+              .skip(_activeProgram!.currentExerciseIndex + 1)
+              .take(3)
+              .map((entry) {
+            final ex = entry.value;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    ex.icon,
+                    style: const TextStyle(fontSize: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      ex.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${ex.sets}×${ex.reps}',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: 32),
+
+          // Start button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => ble.startWorkout(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF5C32E),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.play_arrow, size: 28),
+                  SizedBox(width: 12),
+                  Text(
+                    'DÉMARRER LA SÉANCE',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExerciseStat(String icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(icon, style: const TextStyle(fontSize: 20)),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuidedModeActiveView() {
+    final currentExercise = _activeProgram!.currentExercise;
+    final currentSet = _activeProgram!.currentSet;
+
+    // Find exercise visual data
+    final exerciseData = _exercises.firstWhere(
+      (ex) => ex['name'] == currentExercise.name,
+      orElse: () => _exercises.last,
+    );
+
+    return StreamBuilder<int>(
+      stream: ble.currentSetRepsStream,
+      initialData: 0,
+      builder: (context, snapshot) {
+        final currentReps = snapshot.data ?? 0;
+        final targetReps = currentExercise.reps;
+        final repsProgress = (currentReps / targetReps).clamp(0.0, 1.0);
+
+        return Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Exercise icon
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: (exerciseData['color'] as Color).withOpacity(0.2),
+                    border: Border.all(
+                      color: exerciseData['color'] as Color,
+                      width: 3,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      exerciseData['icon'] as String,
+                      style: const TextStyle(fontSize: 48),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Exercise name
+                Text(
+                  currentExercise.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+
+                // Set info
+                Text(
+                  'Série $currentSet/${currentExercise.sets}',
+                  style: TextStyle(
+                    color: exerciseData['color'] as Color,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // Reps progress
+                Container(
+                  width: 200,
+                  height: 200,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Progress circle
+                      SizedBox(
+                        width: 200,
+                        height: 200,
+                        child: CircularProgressIndicator(
+                          value: repsProgress,
+                          strokeWidth: 12,
+                          backgroundColor: Colors.white.withOpacity(0.1),
+                          valueColor: AlwaysStoppedAnimation(
+                            exerciseData['color'] as Color,
+                          ),
+                        ),
+                      ),
+                      // Reps count
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            currentReps.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 64,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const Text(
+                            'REPS',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 16,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Objectif: $targetReps',
+                            style: TextStyle(
+                              color: exerciseData['color'] as Color,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // Notes
+                if (currentExercise.notes != null)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5C32E).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFF5C32E),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.lightbulb,
+                          color: Color(0xFFF5C32E),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            currentExercise.notes!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 20),
+
+                // Rest reminder
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.hourglass_bottom,
+                        color: Colors.white54,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Repos recommandé: ${currentExercise.restSeconds}s',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
