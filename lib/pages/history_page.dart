@@ -12,19 +12,91 @@ class HistoryPage extends StatefulWidget {
 class _HistoryPageState extends State<HistoryPage> {
   final WorkoutHistoryService _historyService = WorkoutHistoryService();
   List<WorkoutSession> _sessions = [];
+  List<WorkoutSession> _filteredSessions = [];
   bool _isLoading = true;
+
+  // Search and filter
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String _selectedFilter = 'Tous'; // 'Tous', 'Semaine', 'Mois', '3 Mois'
+  String _selectedExerciseFilter = 'Tous';
+  Set<String> _allExercises = {};
 
   @override
   void initState() {
     super.initState();
     _loadHistory();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase();
+      _applyFilters();
+    });
+  }
+
+  void _applyFilters() {
+    var filtered = _sessions.where((session) {
+      // Search filter
+      bool matchesSearch = true;
+      if (_searchQuery.isNotEmpty) {
+        matchesSearch = session.sets.any((set) =>
+            set.exercise.toLowerCase().contains(_searchQuery) ||
+            (set.equipment?.toLowerCase().contains(_searchQuery) ?? false));
+      }
+
+      // Date filter
+      bool matchesDate = true;
+      final now = DateTime.now();
+      switch (_selectedFilter) {
+        case 'Semaine':
+          matchesDate = session.date.isAfter(now.subtract(const Duration(days: 7)));
+          break;
+        case 'Mois':
+          matchesDate = session.date.isAfter(now.subtract(const Duration(days: 30)));
+          break;
+        case '3 Mois':
+          matchesDate = session.date.isAfter(now.subtract(const Duration(days: 90)));
+          break;
+      }
+
+      // Exercise filter
+      bool matchesExercise = true;
+      if (_selectedExerciseFilter != 'Tous') {
+        matchesExercise = session.sets.any((set) => set.exercise == _selectedExerciseFilter);
+      }
+
+      return matchesSearch && matchesDate && matchesExercise;
+    }).toList();
+
+    setState(() {
+      _filteredSessions = filtered;
+    });
   }
 
   Future<void> _loadHistory() async {
     setState(() => _isLoading = true);
     final sessions = await _historyService.getAllSessions();
+
+    // Extract all unique exercises
+    Set<String> exercises = {};
+    for (var session in sessions) {
+      for (var set in session.sets) {
+        exercises.add(set.exercise);
+      }
+    }
+
     setState(() {
       _sessions = sessions;
+      _allExercises = exercises;
+      _applyFilters();
       _isLoading = false;
     });
   }
@@ -113,6 +185,7 @@ class _HistoryPageState extends State<HistoryPage> {
       child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -144,7 +217,7 @@ class _HistoryPageState extends State<HistoryPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            "${_sessions.length} séance${_sessions.length > 1 ? 's' : ''}",
+            "${_filteredSessions.length} séance${_filteredSessions.length > 1 ? 's' : ''} ${_selectedFilter != 'Tous' ? '($_selectedFilter)' : ''}",
             style: TextStyle(
               color: Colors.white.withOpacity(0.6),
               fontSize: 14,
@@ -152,8 +225,199 @@ class _HistoryPageState extends State<HistoryPage> {
           ),
           const SizedBox(height: 16),
 
-          // Global stats summary
-          if (_sessions.isNotEmpty) ...[
+          // Search Bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.1),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.search,
+                  color: Color(0xFFF5C32E),
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Rechercher un exercice...',
+                      hintStyle: TextStyle(
+                        color: Colors.white.withOpacity(0.4),
+                        fontSize: 14,
+                      ),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                if (_searchQuery.isNotEmpty)
+                  GestureDetector(
+                    onTap: () {
+                      _searchController.clear();
+                    },
+                    child: Icon(
+                      Icons.clear,
+                      color: Colors.white.withOpacity(0.6),
+                      size: 20,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Filter Chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                // Date filters
+                ...[
+ 'Tous',
+                  'Semaine',
+                  'Mois',
+                  '3 Mois'
+                ].map((filter) {
+                  final isSelected = _selectedFilter == filter;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedFilter = filter;
+                          _applyFilters();
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFFF5C32E)
+                              : Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected
+                                ? const Color(0xFFF5C32E)
+                                : Colors.white.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          filter,
+                          style: TextStyle(
+                            color: isSelected ? Colors.black : Colors.white70,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+
+                // Exercise filter
+                if (_allExercises.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  PopupMenuButton<String>(
+                    color: const Color(0xFF1A1A1A),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    onSelected: (value) {
+                      setState(() {
+                        _selectedExerciseFilter = value;
+                        _applyFilters();
+                      });
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'Tous',
+                        child: Text(
+                          'Tous les exercices',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      ..._allExercises.map((exercise) {
+                        return PopupMenuItem(
+                          value: exercise,
+                          child: Text(
+                            exercise,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        );
+                      }).toList(),
+                    ],
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _selectedExerciseFilter != 'Tous'
+                            ? const Color(0xFFF5C32E)
+                            : Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: _selectedExerciseFilter != 'Tous'
+                              ? const Color(0xFFF5C32E)
+                              : Colors.white.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.fitness_center,
+                            size: 16,
+                            color: _selectedExerciseFilter != 'Tous'
+                                ? Colors.black
+                                : Colors.white70,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _selectedExerciseFilter == 'Tous'
+                                ? 'Exercice'
+                                : _selectedExerciseFilter,
+                            style: TextStyle(
+                              color: _selectedExerciseFilter != 'Tous'
+                                  ? Colors.black
+                                  : Colors.white70,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.arrow_drop_down,
+                            size: 18,
+                            color: _selectedExerciseFilter != 'Tous'
+                                ? Colors.black
+                                : Colors.white70,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Quick Stats Summary
+          if (_filteredSessions.isNotEmpty) ...[
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -166,7 +430,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '📊 Tes stats globales',
+                    '📊 Stats filtrées',
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: 16,
@@ -179,7 +443,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       Expanded(
                         child: _buildGlobalStat(
                           'Total reps',
-                          _sessions.fold(0, (sum, s) => sum + s.totalReps).toString(),
+                          _filteredSessions.fold(0, (sum, s) => sum + s.totalReps).toString(),
                           Icons.fitness_center,
                         ),
                       ),
@@ -187,7 +451,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       Expanded(
                         child: _buildGlobalStat(
                           'Total sets',
-                          _sessions.fold(0, (sum, s) => sum + s.sets.length).toString(),
+                          _filteredSessions.fold(0, (sum, s) => sum + s.sets.length).toString(),
                           Icons.format_list_numbered,
                         ),
                       ),
@@ -195,7 +459,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       Expanded(
                         child: _buildGlobalStat(
                           'Record',
-                          _sessions.map((s) => s.totalReps).reduce((a, b) => a > b ? a : b).toString(),
+                          _filteredSessions.map((s) => s.totalReps).reduce((a, b) => a > b ? a : b).toString(),
                           Icons.emoji_events,
                         ),
                       ),
@@ -206,7 +470,41 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
             const SizedBox(height: 20),
           ],
-          ..._sessions.map((session) => _buildSessionCard(session)),
+
+          // Sessions list
+          if (_filteredSessions.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(40),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.search_off,
+                    size: 60,
+                    color: Colors.white.withOpacity(0.3),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Aucun résultat',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Modifie tes filtres pour voir plus de séances',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.4),
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            )
+          else
+            ..._filteredSessions.map((session) => _buildSessionCard(session)),
         ],
       ),
     );
@@ -220,7 +518,10 @@ class _HistoryPageState extends State<HistoryPage> {
     }
     final avgTempo = session.sets.isEmpty
         ? 0.0
-        : session.sets.map((s) => s.averageTempo).reduce((a, b) => a + b) / session.sets.length;
+        : session.sets.where((s) => !s.isManual).map((s) => s.averageTempo).isEmpty
+            ? 0.0
+            : session.sets.where((s) => !s.isManual).map((s) => s.averageTempo).reduce((a, b) => a + b) /
+                session.sets.where((s) => !s.isManual).length;
     final maxReps = session.sets.isEmpty ? 0 : session.sets.map((s) => s.reps).reduce((a, b) => a > b ? a : b);
 
     return Container(
@@ -366,7 +667,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       Expanded(
                         child: _buildStatTile(
                           'Tempo moyen',
-                          '${avgTempo.toStringAsFixed(1)}s',
+                          avgTempo > 0 ? '${avgTempo.toStringAsFixed(1)}s' : 'N/A',
                           Icons.speed,
                         ),
                       ),
@@ -575,9 +876,10 @@ class _HistoryPageState extends State<HistoryPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF101010),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Effacer l\'historique',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
         ),
         content: const Text(
           'Veux-tu vraiment supprimer toutes tes séances ? Cette action est irréversible.',
@@ -595,7 +897,7 @@ class _HistoryPageState extends State<HistoryPage> {
             onPressed: () => Navigator.pop(context, true),
             child: const Text(
               'Effacer',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700),
             ),
           ),
         ],

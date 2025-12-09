@@ -1,6 +1,9 @@
 import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gymai/services/ble_service.dart';
+import 'package:gymai/services/workout_history_service.dart';
+import 'package:gymai/models/workout_models.dart';
 
 class TrainingPage extends StatefulWidget {
   const TrainingPage({super.key});
@@ -12,23 +15,41 @@ class TrainingPage extends StatefulWidget {
 class _TrainingPageState extends State<TrainingPage>
     with SingleTickerProviderStateMixin {
   final BLEService ble = BLEService();
+  final WorkoutHistoryService _historyService = WorkoutHistoryService();
 
   int lastReps = 0;
   late AnimationController pulseController;
 
+  // Rest timer
+  DateTime? lastSetTime;
+  Timer? restTimer;
+  int restSeconds = 0;
+
+  // Recent sessions
+  List<WorkoutSession> _recentSessions = [];
+
   @override
   void initState() {
     super.initState();
-    // Don't auto-start - wait for user to click Start Workout button
+    _loadRecentSessions();
 
     pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
     )..value = 0.0;
 
+    // Listen for sets completed to start rest timer
+    ble.currentSetsStream.listen((sets) {
+      if (sets.isNotEmpty && lastSetTime != sets.last.timestamp) {
+        _startRestTimer();
+        lastSetTime = sets.last.timestamp;
+      }
+    });
+
     // Listen for session saved events
     ble.sessionSavedStream.listen((session) {
       if (mounted) {
+        _loadRecentSessions(); // Refresh recent sessions
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -62,9 +83,31 @@ class _TrainingPageState extends State<TrainingPage>
     });
   }
 
+  Future<void> _loadRecentSessions() async {
+    final sessions = await _historyService.getAllSessions();
+    if (mounted) {
+      setState(() {
+        _recentSessions = sessions.take(3).toList();
+      });
+    }
+  }
+
+  void _startRestTimer() {
+    restTimer?.cancel();
+    restSeconds = 0;
+    restTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          restSeconds++;
+        });
+      }
+    });
+  }
+
   @override
   void dispose() {
     pulseController.dispose();
+    restTimer?.cancel();
     super.dispose();
   }
 
@@ -480,634 +523,27 @@ class _TrainingPageState extends State<TrainingPage>
         backgroundColor: Colors.black,
         elevation: 0,
         title: const Text(
-          "Session",
+          "Training",
           style: TextStyle(
             color: Colors.white,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
+            fontSize: 22,
           ),
         ),
         centerTitle: true,
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 12),
+      body: StreamBuilder<bool>(
+        stream: ble.workoutStateStream,
+        initialData: false,
+        builder: (context, workoutSnapshot) {
+          final isActive = workoutSnapshot.data ?? false;
 
-          // Start/Stop Workout Button + Session Timer
-          StreamBuilder<bool>(
-            stream: ble.workoutStateStream,
-            initialData: false,
-            builder: (context, workoutSnapshot) {
-              final isActive = workoutSnapshot.data ?? false;
+          if (!isActive) {
+            return _buildInactiveView();
+          }
 
-              return Column(
-                children: [
-                  // Session Timer
-                  if (isActive)
-                    StreamBuilder<Duration>(
-                      stream: ble.sessionDurationStream,
-                      initialData: Duration.zero,
-                      builder: (context, timerSnapshot) {
-                        final duration = timerSnapshot.data ?? Duration.zero;
-                        final minutes = duration.inMinutes.toString().padLeft(2, '0');
-                        final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
-
-                        return Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 24),
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.timer_outlined,
-                                color: Color(0xFFF5C32E),
-                                size: 20,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                "$minutes:$seconds",
-                                style: const TextStyle(
-                                  color: Color(0xFFF5C32E),
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w700,
-                                  fontFeatures: [FontFeature.tabularFigures()],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-
-                  if (isActive) const SizedBox(height: 12),
-
-                  // Workout Control Buttons
-                  if (!isActive)
-                    // START button
-                    GestureDetector(
-                      onTap: () => ble.startWorkout(),
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 24),
-                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFF5C32E), Color(0xFFFFA500)],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFF5C32E).withOpacity(0.3),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.play_arrow, color: Colors.black, size: 24),
-                            SizedBox(width: 12),
-                            Text(
-                              "START WORKOUT",
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    // PAUSE/RESUME + STOP buttons
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // PAUSE/RESUME button
-                        GestureDetector(
-                          onTap: () {
-                            if (ble.isWorkoutPaused) {
-                              ble.resumeWorkout();
-                            } else {
-                              ble.pauseWorkout();
-                            }
-                            setState(() {});
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(999),
-                              gradient: LinearGradient(
-                                colors: ble.isWorkoutPaused
-                                    ? [const Color(0xFF4CAF50), const Color(0xFF66BB6A)]
-                                    : [const Color(0xFFFFA726), const Color(0xFFFF9800)],
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: (ble.isWorkoutPaused ? Colors.green : Colors.orange)
-                                      .withOpacity(0.3),
-                                  blurRadius: 15,
-                                  spreadRadius: 1,
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  ble.isWorkoutPaused ? Icons.play_arrow : Icons.pause,
-                                  color: Colors.black,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  ble.isWorkoutPaused ? "RESUME" : "PAUSE",
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.0,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // STOP button
-                        GestureDetector(
-                          onTap: () => ble.stopWorkout(),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(999),
-                              gradient: LinearGradient(
-                                colors: [Colors.red.shade400, Colors.red.shade600],
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.red.withOpacity(0.3),
-                                  blurRadius: 15,
-                                  spreadRadius: 1,
-                                ),
-                              ],
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.stop, color: Colors.black, size: 20),
-                                SizedBox(width: 8),
-                                Text(
-                                  "STOP",
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.0,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              );
-            },
-          ),
-
-          const SizedBox(height: 12),
-
-          // Etat connexion / proximité
-          StreamBuilder<bool>(
-            stream: ble.onDetected,
-            initialData: false,
-            builder: (context, snapshot) {
-              final connected = snapshot.data ?? false;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  color: connected
-                      ? Colors.greenAccent.withOpacity(0.12)
-                      : Colors.yellowAccent.withOpacity(0.1),
-                  border: Border.all(
-                    color: connected
-                        ? Colors.greenAccent
-                        : Colors.yellowAccent,
-                    width: 1.2,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      connected ? Icons.flash_on : Icons.watch,
-                      color:
-                      connected ? Colors.greenAccent : Colors.yellowAccent,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      connected
-                          ? "Haltères détectées"
-                          : "En attente des haltères",
-                      style: TextStyle(
-                        color: connected
-                            ? Colors.greenAccent
-                            : Colors.yellowAccent,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-
-          const SizedBox(height: 12),
-
-          // Current Set in Progress (not finalized yet)
-          StreamBuilder<int>(
-            stream: ble.currentSetRepsStream,
-            initialData: 0,
-            builder: (context, currentSetSnapshot) {
-              final currentSetReps = currentSetSnapshot.data ?? 0;
-
-              if (currentSetReps == 0) {
-                return const SizedBox.shrink();
-              }
-
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5C32E).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFFF5C32E),
-                    width: 1.5,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.play_circle_outline,
-                      color: Color(0xFFF5C32E),
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Série en cours: $currentSetReps reps',
-                      style: const TextStyle(
-                        color: Color(0xFFF5C32E),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      '(30s pour valider)',
-                      style: TextStyle(
-                        color: Color(0xFFF5C32E),
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-
-          const SizedBox(height: 8),
-
-          // Current Sets Display
-          StreamBuilder<List<dynamic>>(
-            stream: ble.currentSetsStream,
-            initialData: const [],
-            builder: (context, setsSnapshot) {
-              final sets = setsSnapshot.data ?? [];
-
-              if (sets.isEmpty) {
-                return const SizedBox.shrink();
-              }
-
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                padding: const EdgeInsets.all(12),
-                constraints: const BoxConstraints(
-                  maxHeight: 110, // Limite la hauteur pour éviter overflow
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
-                    width: 1,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.fitness_center,
-                          color: Color(0xFFF5C32E),
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Séries complétées: ${sets.length}',
-                          style: const TextStyle(
-                            color: Color(0xFFF5C32E),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Flexible(
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: sets.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 12),
-                        itemBuilder: (context, index) {
-                          final set = sets[index];
-                          return Container(
-                            width: 140,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF101010),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.15),
-                                width: 1,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  set.displayExercise,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.repeat,
-                                      color: Colors.white70,
-                                      size: 14,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${set.reps} reps',
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.speed,
-                                      color: Colors.white70,
-                                      size: 14,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      set.formattedTempo,
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-
-          const SizedBox(height: 12),
-
-          // Bloc principal: reps, tempo, exercice
-          Expanded(
-            child: StreamBuilder<TrainingMetrics>(
-              stream: ble.metricsStream,
-              builder: (context, snapshot) {
-                final metrics = snapshot.data;
-                final reps = metrics?.reps ?? 0;
-                final tempo = metrics?.tempo ?? "en attente";
-                final exercise = metrics?.exercise ?? "mouvement non reconnu";
-                final conf = metrics?.confidence ?? 0;
-
-                if (reps != lastReps && reps > 0) {
-                  lastReps = reps;
-                  // Only animate if not already animating
-                  if (!pulseController.isAnimating) {
-                    pulseController.forward(from: 0.0).then((_) {
-                      pulseController.reverse();
-                    });
-                  }
-                }
-
-                return Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Cercle reps
-                      AnimatedBuilder(
-                        animation: pulseController,
-                        builder: (context, child) {
-                          // Map 0.0-1.0 to 0.95-1.05 with easeOutBack curve
-                          final curvedValue = Curves.easeOutBack.transform(pulseController.value);
-                          final scale = 0.95 + (curvedValue * 0.10);
-                          return Transform.scale(
-                            scale: scale,
-                            child: child,
-                          );
-                        },
-                        child: Container(
-                          width: 170,
-                          height: 170,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: const SweepGradient(
-                              colors: [
-                                Color(0xFFFFEB3B),
-                                Color(0xFFFFC107),
-                                Color(0xFFFFEB3B),
-                              ],
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color:
-                                Colors.yellowAccent.withOpacity(0.4),
-                                blurRadius: 25,
-                                spreadRadius: 4,
-                              ),
-                            ],
-                          ),
-                          child: Container(
-                            margin: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: const Color(0xFF101010),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text(
-                                  "Reps",
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  reps.toString(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 48,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Tempo chip
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          color: tempoColor(tempo).withOpacity(0.12),
-                          border: Border.all(
-                            color: tempoColor(tempo),
-                            width: 1.2,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.speed,
-                              size: 18,
-                              color: tempoColor(tempo),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              tempo,
-                              style: TextStyle(
-                                color: tempoColor(tempo),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Exercice détecté
-                      Column(
-                        children: [
-                          Text(
-                            exercise,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            conf > 0
-                                ? "Confiance ${conf.toStringAsFixed(2)}"
-                                : "En attente de détection",
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-
-          // Petite barre info en bas
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            decoration: const BoxDecoration(
-              color: Color(0xFF080808),
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text(
-                  "Conseil",
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 13,
-                  ),
-                ),
-                Text(
-                  "Garde le contrôle sur chaque phase",
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          return _buildActiveWorkoutView();
+        },
       ),
       floatingActionButton: StreamBuilder<bool>(
         stream: ble.workoutStateStream,
@@ -1133,6 +569,868 @@ class _TrainingPageState extends State<TrainingPage>
           );
         },
       ),
+    );
+  }
+
+  Widget _buildInactiveView() {
+    return Column(
+      children: [
+        Expanded(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFF5C32E), Color(0xFFFFA500)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFF5C32E).withOpacity(0.3),
+                        blurRadius: 30,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.fitness_center,
+                    size: 60,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                const Text(
+                  'Prêt à commencer ?',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Lance ta séance d\'entraînement',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.6),
+                  ),
+                ),
+                const SizedBox(height: 40),
+                GestureDetector(
+                  onTap: () => ble.startWorkout(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 48),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFF5C32E), Color(0xFFFFA500)],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFF5C32E).withOpacity(0.4),
+                          blurRadius: 25,
+                          spreadRadius: 3,
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.play_arrow, color: Colors.black, size: 28),
+                        SizedBox(width: 12),
+                        Text(
+                          "COMMENCER",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Recent sessions preview
+        if (_recentSessions.isNotEmpty) ...[
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.03),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.history,
+                      color: Color(0xFFF5C32E),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Dernières séances',
+                      style: TextStyle(
+                        color: Color(0xFFF5C32E),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ..._recentSessions.map((session) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [Color(0xFFF5C32E), Color(0xFFFFA500)],
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${session.sets.length}',
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                session.formattedDate,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                '${session.totalReps} reps • ${session.formattedDuration}',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.6),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildActiveWorkoutView() {
+    return Column(
+      children: [
+        const SizedBox(height: 12),
+
+        // Session Timer + Sets Counter
+        StreamBuilder<Duration>(
+          stream: ble.sessionDurationStream,
+          initialData: Duration.zero,
+          builder: (context, timerSnapshot) {
+            final duration = timerSnapshot.data ?? Duration.zero;
+            final minutes = duration.inMinutes.toString().padLeft(2, '0');
+            final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+
+            return StreamBuilder<List<dynamic>>(
+              stream: ble.currentSetsStream,
+              initialData: const [],
+              builder: (context, setsSnapshot) {
+                final totalSets = setsSnapshot.data?.length ?? 0;
+
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFF5C32E), Color(0xFFFFA500)],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFF5C32E).withOpacity(0.3),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Timer
+                      Expanded(
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.timer,
+                              color: Colors.black,
+                              size: 24,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "$minutes:$seconds",
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 28,
+                                fontWeight: FontWeight.w900,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                            const Text(
+                              'Durée',
+                              style: TextStyle(
+                                color: Colors.black87,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 60,
+                        color: Colors.black.withOpacity(0.2),
+                      ),
+                      // Sets
+                      Expanded(
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.format_list_numbered,
+                              color: Colors.black,
+                              size: 24,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              totalSets.toString(),
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 28,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const Text(
+                              'Séries',
+                              style: TextStyle(
+                                color: Colors.black87,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Rest Timer
+                      if (restSeconds > 0) ...[
+                        Container(
+                          width: 1,
+                          height: 60,
+                          color: Colors.black.withOpacity(0.2),
+                        ),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              const Icon(
+                                Icons.hourglass_bottom,
+                                color: Colors.black,
+                                size: 24,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${restSeconds}s',
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const Text(
+                                'Repos',
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
+
+        const SizedBox(height: 16),
+
+        // Control Buttons
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // PAUSE/RESUME button
+            GestureDetector(
+              onTap: () {
+                if (ble.isWorkoutPaused) {
+                  ble.resumeWorkout();
+                } else {
+                  ble.pauseWorkout();
+                }
+                setState(() {});
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  gradient: LinearGradient(
+                    colors: ble.isWorkoutPaused
+                        ? [const Color(0xFF4CAF50), const Color(0xFF66BB6A)]
+                        : [const Color(0xFFFFA726), const Color(0xFFFF9800)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (ble.isWorkoutPaused ? Colors.green : Colors.orange)
+                          .withOpacity(0.3),
+                      blurRadius: 15,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      ble.isWorkoutPaused ? Icons.play_arrow : Icons.pause,
+                      color: Colors.black,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      ble.isWorkoutPaused ? "RESUME" : "PAUSE",
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // STOP button
+            GestureDetector(
+              onTap: () => ble.stopWorkout(),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  gradient: LinearGradient(
+                    colors: [Colors.red.shade400, Colors.red.shade600],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withOpacity(0.3),
+                      blurRadius: 15,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.stop, color: Colors.black, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      "STOP",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // BLE Connection Status
+        StreamBuilder<bool>(
+          stream: ble.onDetected,
+          initialData: false,
+          builder: (context, snapshot) {
+            final connected = snapshot.data ?? false;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                color: connected
+                    ? Colors.greenAccent.withOpacity(0.12)
+                    : Colors.yellowAccent.withOpacity(0.1),
+                border: Border.all(
+                  color: connected
+                      ? Colors.greenAccent
+                      : Colors.yellowAccent,
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    connected ? Icons.flash_on : Icons.watch,
+                    color:
+                    connected ? Colors.greenAccent : Colors.yellowAccent,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    connected
+                        ? "Haltères détectées"
+                        : "En attente des haltères",
+                    style: TextStyle(
+                      color: connected
+                          ? Colors.greenAccent
+                          : Colors.yellowAccent,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+
+        const SizedBox(height: 12),
+
+        // Current Set in Progress
+        StreamBuilder<int>(
+          stream: ble.currentSetRepsStream,
+          initialData: 0,
+          builder: (context, currentSetSnapshot) {
+            final currentSetReps = currentSetSnapshot.data ?? 0;
+
+            if (currentSetReps == 0) {
+              return const SizedBox.shrink();
+            }
+
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5C32E).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFFF5C32E),
+                  width: 1.5,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.play_circle_outline,
+                    color: Color(0xFFF5C32E),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Série en cours: $currentSetReps reps',
+                    style: const TextStyle(
+                      color: Color(0xFFF5C32E),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '(30s pour valider)',
+                    style: TextStyle(
+                      color: Color(0xFFF5C32E),
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+
+        const SizedBox(height: 8),
+
+        // Current Sets Display (horizontal scroll)
+        StreamBuilder<List<dynamic>>(
+          stream: ble.currentSetsStream,
+          initialData: const [],
+          builder: (context, setsSnapshot) {
+            final sets = setsSnapshot.data ?? [];
+
+            if (sets.isEmpty) {
+              return const SizedBox.shrink();
+            }
+
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.all(12),
+              constraints: const BoxConstraints(
+                maxHeight: 110,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.fitness_center,
+                        color: Color(0xFFF5C32E),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Séries complétées: ${sets.length}',
+                        style: const TextStyle(
+                          color: Color(0xFFF5C32E),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Flexible(
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: sets.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final set = sets[index];
+                        return Container(
+                          width: 140,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF101010),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.15),
+                              width: 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                set.displayExercise,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.repeat,
+                                    color: Colors.white70,
+                                    size: 14,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${set.reps} reps',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (!set.isManual) ...[
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.speed,
+                                      color: Colors.white70,
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      set.formattedTempo,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+
+        const SizedBox(height: 12),
+
+        // Main reps display
+        Expanded(
+          child: StreamBuilder<TrainingMetrics>(
+            stream: ble.metricsStream,
+            builder: (context, snapshot) {
+              final metrics = snapshot.data;
+              final reps = metrics?.reps ?? 0;
+              final tempo = metrics?.tempo ?? "en attente";
+              final exercise = metrics?.exercise ?? "mouvement non reconnu";
+              final conf = metrics?.confidence ?? 0;
+
+              if (reps != lastReps && reps > 0) {
+                lastReps = reps;
+                if (!pulseController.isAnimating) {
+                  pulseController.forward(from: 0.0).then((_) {
+                    pulseController.reverse();
+                  });
+                }
+              }
+
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Reps circle
+                    AnimatedBuilder(
+                      animation: pulseController,
+                      builder: (context, child) {
+                        final curvedValue = Curves.easeOutBack.transform(pulseController.value);
+                        final scale = 0.95 + (curvedValue * 0.10);
+                        return Transform.scale(
+                          scale: scale,
+                          child: child,
+                        );
+                      },
+                      child: Container(
+                        width: 170,
+                        height: 170,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const SweepGradient(
+                            colors: [
+                              Color(0xFFFFEB3B),
+                              Color(0xFFFFC107),
+                              Color(0xFFFFEB3B),
+                            ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color:
+                              Colors.yellowAccent.withOpacity(0.4),
+                              blurRadius: 25,
+                              spreadRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: Container(
+                          margin: const EdgeInsets.all(12),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFF101010),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                "Reps",
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                reps.toString(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 48,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Tempo chip
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        color: tempoColor(tempo).withOpacity(0.12),
+                        border: Border.all(
+                          color: tempoColor(tempo),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.speed,
+                            size: 18,
+                            color: tempoColor(tempo),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            tempo,
+                            style: TextStyle(
+                              color: tempoColor(tempo),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Exercise detected
+                    Column(
+                      children: [
+                        Text(
+                          exercise,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          conf > 0
+                              ? "Confiance ${conf.toStringAsFixed(2)}"
+                              : "En attente de détection",
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+
+        // Advice bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: const BoxDecoration(
+            color: Color(0xFF080808),
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(24),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Text(
+                "Conseil",
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 13,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  "Garde le contrôle sur chaque phase",
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  textAlign: TextAlign.end,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
