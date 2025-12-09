@@ -118,22 +118,104 @@ class _TrainingPageState extends State<TrainingPage>
     return Colors.grey;
   }
 
-  // Predefined options for dropdowns
-  final List<String> _exercises = [
-    'Développé couché',
-    'Développé incliné',
-    'Développé décliné',
-    'Curl biceps',
-    'Curl marteau',
-    'Tractions',
-    'Rowing',
-    'Squat',
-    'Presse à cuisses',
-    'Soulevé de terre',
-    'Extensions triceps',
-    'Dips',
-    'Élévations latérales',
-    'Autre',
+  // Exercise model with visual representation
+  final List<Map<String, dynamic>> _exercises = [
+    {
+      'name': 'Développé couché',
+      'icon': '🏋️',
+      'color': const Color(0xFFE91E63),
+      'category': 'Pectoraux'
+    },
+    {
+      'name': 'Développé incliné',
+      'icon': '💪',
+      'color': const Color(0xFFE91E63),
+      'category': 'Pectoraux'
+    },
+    {
+      'name': 'Développé décliné',
+      'icon': '🔻',
+      'color': const Color(0xFFE91E63),
+      'category': 'Pectoraux'
+    },
+    {
+      'name': 'Curl biceps',
+      'icon': '💪',
+      'color': const Color(0xFF2196F3),
+      'category': 'Biceps'
+    },
+    {
+      'name': 'Curl marteau',
+      'icon': '🔨',
+      'color': const Color(0xFF2196F3),
+      'category': 'Biceps'
+    },
+    {
+      'name': 'Tractions',
+      'icon': '⬆️',
+      'color': const Color(0xFF4CAF50),
+      'category': 'Dos'
+    },
+    {
+      'name': 'Rowing',
+      'icon': '🚣',
+      'color': const Color(0xFF4CAF50),
+      'category': 'Dos'
+    },
+    {
+      'name': 'Squat',
+      'icon': '🦵',
+      'color': const Color(0xFFFF9800),
+      'category': 'Jambes'
+    },
+    {
+      'name': 'Presse à cuisses',
+      'icon': '🦿',
+      'color': const Color(0xFFFF9800),
+      'category': 'Jambes'
+    },
+    {
+      'name': 'Soulevé de terre',
+      'icon': '⚡',
+      'color': const Color(0xFF9C27B0),
+      'category': 'Full body'
+    },
+    {
+      'name': 'Extensions triceps',
+      'icon': '💥',
+      'color': const Color(0xFFF44336),
+      'category': 'Triceps'
+    },
+    {
+      'name': 'Dips',
+      'icon': '⬇️',
+      'color': const Color(0xFFF44336),
+      'category': 'Triceps'
+    },
+    {
+      'name': 'Élévations latérales',
+      'icon': '🦅',
+      'color': const Color(0xFF00BCD4),
+      'category': 'Épaules'
+    },
+    {
+      'name': 'Développé militaire',
+      'icon': '🎖️',
+      'color': const Color(0xFF00BCD4),
+      'category': 'Épaules'
+    },
+    {
+      'name': 'Crunch',
+      'icon': '🔥',
+      'color': const Color(0xFFFFEB3B),
+      'category': 'Abdos'
+    },
+    {
+      'name': 'Autre',
+      'icon': '➕',
+      'color': const Color(0xFF9E9E9E),
+      'category': 'Autre'
+    },
   ];
 
   final List<String> _equipment = [
@@ -152,363 +234,587 @@ class _TrainingPageState extends State<TrainingPage>
     110, 120, 130, 140, 150
   ];
 
+  // STEP 1: Choose exercise
   void _showManualEntryDialog() {
-    String? selectedExercise;
-    String? selectedEquipment;
-    final repsController = TextEditingController();
-    double? selectedWeight;
-    bool isKg = true; // true = kg, false = lbs
-
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            backgroundColor: const Color(0xFF0A0A0A),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5C32E).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.add_circle,
-                    color: Color(0xFFF5C32E),
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Nouvel exercice',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 20,
-                  ),
-                ),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.9,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0A0A0A),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
                   children: [
-                    // Exercice dropdown
-                    const Text(
-                      'Exercice *',
-                      style: TextStyle(
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5C32E).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.fitness_center,
                         color: Color(0xFFF5C32E),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        size: 24,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: selectedExercise != null
-                              ? const Color(0xFFF5C32E)
-                              : Colors.white.withOpacity(0.2),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: selectedExercise,
-                          isExpanded: true,
-                          hint: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              'Sélectionner un exercice',
-                              style: TextStyle(color: Colors.white54),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Choisis ton exercice',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 20,
                             ),
                           ),
-                          dropdownColor: const Color(0xFF1A1A1A),
-                          icon: const Padding(
-                            padding: EdgeInsets.only(right: 12),
-                            child: Icon(Icons.arrow_drop_down, color: Color(0xFFF5C32E)),
+                          Text(
+                            'Sélectionne le mouvement effectué',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 13,
+                            ),
                           ),
-                          items: _exercises.map((exercise) {
-                            return DropdownMenuItem(
-                              value: exercise,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: Text(
-                                  exercise,
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) => setState(() => selectedExercise = value),
-                        ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Colors.white54),
+                    ),
+                  ],
+                ),
+              ),
 
-                    // Reps
-                    const Text(
-                      'Répétitions *',
-                      style: TextStyle(
-                        color: Color(0xFFF5C32E),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
+              // Exercise grid
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 0.85,
                     ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: repsController,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                      decoration: InputDecoration(
-                        hintText: 'Ex: 12',
-                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.05),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.2), width: 1.5),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        focusedBorder: const OutlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFFF5C32E), width: 2),
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Weight with kg/lbs toggle
-                    Row(
-                      children: [
-                        const Text(
-                          'Poids',
-                          style: TextStyle(
-                            color: Color(0xFFF5C32E),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.all(2),
+                    itemCount: _exercises.length,
+                    itemBuilder: (context, index) {
+                      final exercise = _exercises[index];
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                          _showExerciseDetailsDialog(exercise);
+                        },
+                        child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: (exercise['color'] as Color).withOpacity(0.3),
+                              width: 1.5,
+                            ),
                           ),
-                          child: Row(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              GestureDetector(
-                                onTap: () => setState(() => isKg = true),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: isKg ? const Color(0xFFF5C32E) : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
+                              // Icon/Emoji
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: (exercise['color'] as Color).withOpacity(0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
                                   child: Text(
-                                    'KG',
-                                    style: TextStyle(
-                                      color: isKg ? Colors.black : Colors.white54,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    exercise['icon'] as String,
+                                    style: const TextStyle(fontSize: 28),
                                   ),
                                 ),
                               ),
-                              GestureDetector(
-                                onTap: () => setState(() => isKg = false),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: !isKg ? const Color(0xFFF5C32E) : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(6),
+                              const SizedBox(height: 8),
+                              // Name
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  exercise['name'] as String,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                  child: Text(
-                                    'LBS',
-                                    style: TextStyle(
-                                      color: !isKg ? Colors.black : Colors.white54,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              // Category
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: (exercise['color'] as Color).withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  exercise['category'] as String,
+                                  style: TextStyle(
+                                    color: exercise['color'] as Color,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: selectedWeight != null
-                              ? const Color(0xFFF5C32E)
-                              : Colors.white.withOpacity(0.2),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<double>(
-                          value: selectedWeight,
-                          isExpanded: true,
-                          hint: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              'Sélectionner ${isKg ? "kg" : "lbs"}',
-                              style: const TextStyle(color: Colors.white54),
-                            ),
-                          ),
-                          dropdownColor: const Color(0xFF1A1A1A),
-                          icon: const Padding(
-                            padding: EdgeInsets.only(right: 12),
-                            child: Icon(Icons.arrow_drop_down, color: Color(0xFFF5C32E)),
-                          ),
-                          items: _commonWeights.map((weight) {
-                            final displayWeight = isKg ? weight : (weight * 2.20462).round();
-                            return DropdownMenuItem(
-                              value: isKg ? weight : weight * 2.20462,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: Text(
-                                  '$displayWeight ${isKg ? "kg" : "lbs"}',
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) => setState(() => selectedWeight = value),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-                    // Equipment dropdown
-                    const Text(
-                      'Équipement',
-                      style: TextStyle(
-                        color: Color(0xFFF5C32E),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+  // STEP 2: Enter details
+  void _showExerciseDetailsDialog(Map<String, dynamic> exercise) {
+    final exerciseName = exercise['name'] as String;
+    final exerciseColor = exercise['color'] as Color;
+    final exerciseIcon = exercise['icon'] as String;
+
+    String? selectedEquipment;
+    final repsController = TextEditingController();
+    double? selectedWeight;
+    bool isKg = true;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.all(16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF0A0A0A),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header with selected exercise
                     Container(
+                      padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: selectedEquipment != null
-                              ? const Color(0xFFF5C32E)
-                              : Colors.white.withOpacity(0.2),
-                          width: 1.5,
+                        gradient: LinearGradient(
+                          colors: [exerciseColor.withOpacity(0.3), exerciseColor.withOpacity(0.1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                       ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: selectedEquipment,
-                          isExpanded: true,
-                          hint: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              'Sélectionner l\'équipement',
-                              style: TextStyle(color: Colors.white54),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: exerciseColor.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                exerciseIcon,
+                                style: const TextStyle(fontSize: 32),
+                              ),
                             ),
                           ),
-                          dropdownColor: const Color(0xFF1A1A1A),
-                          icon: const Padding(
-                            padding: EdgeInsets.only(right: 12),
-                            child: Icon(Icons.arrow_drop_down, color: Color(0xFFF5C32E)),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  exerciseName,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 20,
+                                  ),
+                                ),
+                                const Text(
+                                  'Entre les détails de ta série',
+                                  style: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          items: _equipment.map((equip) {
-                            return DropdownMenuItem(
-                              value: equip,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: Text(
-                                  equip,
-                                  style: const TextStyle(color: Colors.white),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.close, color: Colors.white54),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Form
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Reps
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF5C32E).withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.repeat,
+                                  color: Color(0xFFF5C32E),
+                                  size: 16,
                                 ),
                               ),
-                            );
-                          }).toList(),
-                          onChanged: (value) => setState(() => selectedEquipment = value),
-                        ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Répétitions *',
+                                style: TextStyle(
+                                  color: Color(0xFFF5C32E),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: repsController,
+                            keyboardType: TextInputType.number,
+                            autofocus: true,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Ex: 12',
+                              hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                              filled: true,
+                              fillColor: Colors.white.withOpacity(0.05),
+                              prefixIcon: const Icon(Icons.fitness_center, color: Color(0xFFF5C32E)),
+                              enabledBorder: OutlineInputBorder(
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.2), width: 1.5),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              focusedBorder: const OutlineInputBorder(
+                                borderSide: BorderSide(color: Color(0xFFF5C32E), width: 2),
+                                borderRadius: BorderRadius.all(Radius.circular(12)),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Weight
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: exerciseColor.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.monitor_weight,
+                                  color: exerciseColor,
+                                  size: 16,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Poids',
+                                style: TextStyle(
+                                  color: exerciseColor,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    GestureDetector(
+                                      onTap: () => setState(() => isKg = true),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: isKg ? const Color(0xFFF5C32E) : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'KG',
+                                          style: TextStyle(
+                                            color: isKg ? Colors.black : Colors.white54,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () => setState(() => isKg = false),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: !isKg ? const Color(0xFFF5C32E) : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'LBS',
+                                          style: TextStyle(
+                                            color: !isKg ? Colors.black : Colors.white54,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: selectedWeight != null
+                                    ? exerciseColor
+                                    : Colors.white.withOpacity(0.2),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<double>(
+                                value: selectedWeight,
+                                isExpanded: true,
+                                hint: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  child: Text(
+                                    'Sélectionner ${isKg ? "kg" : "lbs"} (optionnel)',
+                                    style: const TextStyle(color: Colors.white54),
+                                  ),
+                                ),
+                                dropdownColor: const Color(0xFF1A1A1A),
+                                icon: Padding(
+                                  padding: const EdgeInsets.only(right: 12),
+                                  child: Icon(Icons.arrow_drop_down, color: exerciseColor),
+                                ),
+                                items: _commonWeights.map((weight) {
+                                  final displayWeight = isKg ? weight : (weight * 2.20462).round();
+                                  return DropdownMenuItem(
+                                    value: isKg ? weight : weight * 2.20462,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      child: Text(
+                                        '$displayWeight ${isKg ? "kg" : "lbs"}',
+                                        style: const TextStyle(color: Colors.white),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (value) => setState(() => selectedWeight = value),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Equipment
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.build_circle_outlined,
+                                  color: Colors.white54,
+                                  size: 16,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Équipement',
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: selectedEquipment != null
+                                    ? Colors.white.withOpacity(0.3)
+                                    : Colors.white.withOpacity(0.2),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: selectedEquipment,
+                                isExpanded: true,
+                                hint: const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 16),
+                                  child: Text(
+                                    'Sélectionner (optionnel)',
+                                    style: TextStyle(color: Colors.white54),
+                                  ),
+                                ),
+                                dropdownColor: const Color(0xFF1A1A1A),
+                                icon: const Padding(
+                                  padding: EdgeInsets.only(right: 12),
+                                  child: Icon(Icons.arrow_drop_down, color: Colors.white54),
+                                ),
+                                items: _equipment.map((equip) {
+                                  return DropdownMenuItem(
+                                    value: equip,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      child: Text(
+                                        equip,
+                                        style: const TextStyle(color: Colors.white),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (value) => setState(() => selectedEquipment = value),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Action button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFF5C32E),
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              onPressed: () {
+                                final reps = int.tryParse(repsController.text.trim());
+
+                                if (reps == null || reps <= 0) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Entre un nombre de répétitions valide'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                // Convert lbs to kg if needed
+                                final weightInKg = selectedWeight != null && !isKg
+                                    ? selectedWeight! / 2.20462
+                                    : selectedWeight;
+
+                                ble.addManualSet(
+                                  exercise: exerciseName,
+                                  reps: reps,
+                                  weight: weightInKg,
+                                  equipment: selectedEquipment,
+                                );
+
+                                Navigator.pop(context);
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        Text(exerciseIcon, style: const TextStyle(fontSize: 20)),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            '$exerciseName ajouté: $reps reps',
+                                            style: const TextStyle(fontWeight: FontWeight.w600),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    backgroundColor: const Color(0xFF2E7D32),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.check_circle, size: 20),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Ajouter la série',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(
-                  'Annuler',
-                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 15),
-                ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF5C32E),
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {
-                  final reps = int.tryParse(repsController.text.trim());
-
-                  if (selectedExercise == null || reps == null || reps <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Exercice et reps sont requis'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
-
-                  // Convert lbs to kg if needed
-                  final weightInKg = selectedWeight != null && !isKg
-                      ? selectedWeight! / 2.20462
-                      : selectedWeight;
-
-                  ble.addManualSet(
-                    exercise: selectedExercise!,
-                    reps: reps,
-                    weight: weightInKg,
-                    equipment: selectedEquipment,
-                  );
-
-                  Navigator.pop(context);
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('✅ $selectedExercise ajouté: $reps reps'),
-                      backgroundColor: const Color(0xFF2E7D32),
-                    ),
-                  );
-                },
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.check, size: 18),
-                    SizedBox(width: 6),
-                    Text('Ajouter', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                  ],
-                ),
-              ),
-            ],
           );
         },
       ),
