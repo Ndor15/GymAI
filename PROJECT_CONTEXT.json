@@ -1,0 +1,712 @@
+{
+  "project": {
+    "name": "GymAI",
+    "description": "Application Flutter de tracking d'entraînement avec détection automatique des répétitions via BLE et haltère connectée (ESP32 + MPU6050)",
+    "version": "1.0.0+1",
+    "platform": "Flutter 3.7.0",
+    "language": "Dart"
+  },
+
+  "concept_core": {
+    "probleme_resolu": "Tracking automatique des répétitions d'exercices de musculation sans intervention manuelle",
+    "solution": "Haltère connectée via BLE qui envoie les données IMU (MPU6050) à l'app Flutter qui utilise un modèle TensorFlow Lite pour classifier les mouvements et compter les reps",
+    "value_proposition": [
+      "Détection automatique des répétitions en temps réel",
+      "Classification des exercices (curl biceps, curl marteau, etc.)",
+      "Analyse du tempo d'exécution",
+      "Programmes d'entraînement guidés avec quiz personnalisé",
+      "Historique et statistiques de progression",
+      "Ajout manuel d'exercices avec interface intuitive en 2 étapes"
+    ]
+  },
+
+  "architecture": {
+    "pattern": "BLoC-like avec StreamControllers",
+    "state_management": "StreamBuilder + setState",
+    "data_persistence": "SharedPreferences (JSON)",
+    "navigation": "BottomNavigationBar avec IndexedStack",
+    "theming": "Custom theme avec couleurs jaune/orange (#F5C32E, #FFA500)"
+  },
+
+  "tech_stack": {
+    "framework": "Flutter 3.7.0",
+    "dependencies": {
+      "flutter_blue_plus": "^1.16.0 - Communication BLE avec ESP32",
+      "tflite_flutter": "^0.12.1 - Inférence ML pour classification d'exercices",
+      "shared_preferences": "^2.2.2 - Persistance locale (sessions, programmes, settings)",
+      "fl_chart": "^0.69.0 - Graphiques de progression (bar charts, heatmaps)",
+      "intl": "^0.19.0 - Formatage de dates"
+    },
+    "hardware": {
+      "device": "ESP32 avec MPU6050 (IMU 6-axis)",
+      "sensors": "Accéléromètre + Gyroscope",
+      "connection": "Bluetooth Low Energy (BLE)",
+      "data_rate": "~50Hz pour données IMU"
+    },
+    "ml_model": {
+      "type": "TensorFlow Lite",
+      "location": "assets/models/",
+      "input": "Données IMU (accéléromètre + gyroscope)",
+      "output": "Classification d'exercices + confiance + tempo"
+    }
+  },
+
+  "project_structure": {
+    "lib/": {
+      "main.dart": "Point d'entrée, initialise l'app avec MaterialApp et AppShell",
+      "app_shell.dart": "Shell principal avec navigation bottom bar (4 onglets: Training, Programme, Historique, Compte)",
+
+      "models/": {
+        "workout_models.dart": {
+          "classes": ["WorkoutSet", "WorkoutSession"],
+          "purpose": "Modèles de données pour séries et sessions d'entraînement"
+        },
+        "program_models.dart": {
+          "classes": ["UserProfile", "ProgramExercise", "WorkoutDay", "WorkoutProgram", "ActiveProgram"],
+          "purpose": "Modèles pour système de programmes guidés"
+        }
+      },
+
+      "services/": {
+        "ble_service.dart": {
+          "role": "Service central de communication BLE",
+          "responsibilities": [
+            "Scan et connexion au device ESP32",
+            "Réception des données IMU via BLE notifications",
+            "Buffering des données pour le modèle ML",
+            "Gestion du workout state (actif/inactif, pause/resume)",
+            "Comptage des reps et détection de sets",
+            "Sauvegarde des sessions"
+          ],
+          "streams": [
+            "workoutStateStream - État du workout (actif/inactif)",
+            "metricsStream - TrainingMetrics en temps réel",
+            "currentSetsStream - Liste des sets de la session",
+            "currentSetRepsStream - Reps de la série en cours",
+            "sessionDurationStream - Durée de la session",
+            "onDetected - État de connexion BLE",
+            "sessionSavedStream - Événement de sauvegarde"
+          ],
+          "key_methods": [
+            "startWorkout() - Lance une session",
+            "stopWorkout() - Termine et sauvegarde la session",
+            "pauseWorkout() / resumeWorkout()",
+            "addManualSet() - Ajoute une série manuellement"
+          ]
+        },
+        "rep_ai.dart": {
+          "role": "Service d'inférence ML pour classification",
+          "responsibilities": [
+            "Chargement du modèle TFLite",
+            "Prétraitement des données IMU",
+            "Inférence pour classifier l'exercice",
+            "Calcul du tempo et de la confiance"
+          ],
+          "output": "TrainingMetrics (exercise, reps, tempo, confidence)"
+        },
+        "imu_service.dart": {
+          "role": "Traitement des données IMU brutes",
+          "responsibilities": [
+            "Parsing des bytes BLE en valeurs IMU",
+            "Filtrage et normalisation des données",
+            "Détection de mouvement (seuils)"
+          ]
+        },
+        "workout_history_service.dart": {
+          "role": "Persistance des sessions d'entraînement",
+          "storage": "SharedPreferences (clé: 'workout_history')",
+          "methods": [
+            "saveSession(WorkoutSession) - Sauvegarde une session",
+            "getAllSessions() - Récupère toutes les sessions",
+            "deleteSession(index) - Supprime une session"
+          ]
+        },
+        "stats_service.dart": {
+          "role": "Calcul des statistiques agrégées",
+          "calculs": [
+            "Total sessions, sets, reps, volume (kg)",
+            "Exercices favoris et compteurs par exercice",
+            "Personal Records (PRs) par exercice",
+            "Activité hebdomadaire (8 dernières semaines)",
+            "Heatmap d'activité (56 derniers jours)",
+            "Streaks (série actuelle et record)",
+            "Durée moyenne des sessions"
+          ],
+          "output": "WorkoutStats object"
+        },
+        "program_service.dart": {
+          "role": "Gestion des programmes d'entraînement guidés",
+          "programmes_predefinis": [
+            {
+              "id": "beginner_muscle",
+              "name": "Prise de Masse Débutant",
+              "goal": "muscle",
+              "level": "beginner",
+              "days": 3,
+              "structure": "Full Body A/B/C"
+            },
+            {
+              "id": "intermediate_muscle",
+              "name": "Push Pull Legs",
+              "goal": "muscle",
+              "level": "intermediate",
+              "days": 4,
+              "structure": "Push/Pull/Legs/Upper"
+            },
+            {
+              "id": "beginner_strength",
+              "name": "Force Débutant",
+              "goal": "strength",
+              "level": "beginner",
+              "days": 3,
+              "structure": "5x5 style (Squat/Bench/Row, Deadlift/OHP/Pull, Squat light)"
+            },
+            {
+              "id": "beginner_endurance",
+              "name": "Endurance Musculaire",
+              "goal": "endurance",
+              "level": "beginner",
+              "days": 4,
+              "structure": "Circuits hautes reps"
+            },
+            {
+              "id": "beginner_weightloss",
+              "name": "Perte de Poids",
+              "goal": "weight_loss",
+              "level": "beginner",
+              "days": 5,
+              "structure": "HIIT Full Body"
+            }
+          ],
+          "methods": [
+            "recommendPrograms(UserProfile) - Filtre programmes selon profil",
+            "saveActiveProgram() / loadActiveProgram() - Persistance",
+            "nextSet() / nextExercise() / nextDay() - Avancement",
+            "isSetCompleted(detectedReps) - Validation (80% du target)",
+            "getDayProgress() / getProgramProgress() - Calcul progression"
+          ]
+        },
+        "session_service.dart": "Service legacy (possiblement non utilisé)"
+      },
+
+      "pages/": {
+        "training_page.dart": {
+          "role": "Page principale d'entraînement",
+          "modes": [
+            {
+              "mode": "Normal (libre)",
+              "description": "Détection auto des reps sans programme",
+              "ui": "Grand cercle de reps avec pulse animation, tempo chip, exercice détecté"
+            },
+            {
+              "mode": "Guidé (programme actif)",
+              "description": "Suit un programme avec exercices prédéfinis",
+              "ui_inactive": "Preview du programme, exercice en cours, progression de séance, liste des prochains exos",
+              "ui_active": "CircularProgressIndicator avec reps/target, auto-advance quand target atteint",
+              "auto_advance": "Passe à la série/exercice suivant automatiquement quand reps détectées >= 80% de la cible"
+            }
+          ],
+          "features": [
+            "Start/Stop/Pause workout",
+            "Rest timer automatique après chaque série",
+            "Ajout manuel d'exercices (2-step dialog)",
+            "Preview des 3 dernières sessions (mode inactif)",
+            "Compteur de durée et séries en temps réel",
+            "État connexion BLE",
+            "Liste horizontale des sets complétés"
+          ],
+          "manual_entry": {
+            "step1": "Grille 3 colonnes avec 16 exercices (icônes emoji, couleurs par muscle)",
+            "step2": "Formulaire (reps*, poids KG/LBS, équipement) avec gradient header"
+          },
+          "exercises_list": [
+            "Développé couché 🏋️ (Pectoraux)",
+            "Développé incliné 💪 (Pectoraux)",
+            "Développé décliné 🔻 (Pectoraux)",
+            "Curl biceps 💪 (Biceps)",
+            "Curl marteau 🔨 (Biceps)",
+            "Tractions ⬆️ (Dos)",
+            "Rowing 🚣 (Dos)",
+            "Squat 🦵 (Jambes)",
+            "Presse à cuisses 🦿 (Jambes)",
+            "Soulevé de terre ⚡ (Full body)",
+            "Extensions triceps 💥 (Triceps)",
+            "Dips ⬇️ (Triceps)",
+            "Élévations latérales 🦅 (Épaules)",
+            "Développé militaire 🎖️ (Épaules)",
+            "Crunch 🔥 (Abdos)",
+            "Autre ➕"
+          ]
+        },
+        "program_page.dart": {
+          "role": "Système de programmes guidés",
+          "quiz": {
+            "steps": [
+              {
+                "step": 1,
+                "question": "Quel est ton objectif principal ?",
+                "options": ["Prise de masse 💪", "Force 🏋️", "Endurance 🏃", "Perte de poids 🔥"]
+              },
+              {
+                "step": 2,
+                "question": "Quel est ton niveau ?",
+                "options": ["Débutant 🌱 (<6 mois)", "Intermédiaire 💪 (6m-2ans)", "Avancé 🏆 (>2ans)"]
+              },
+              {
+                "step": 3,
+                "question": "Combien de jours peux-tu t'entraîner ?",
+                "options": ["3 📅", "4 📆", "5 🗓️", "6 📋"]
+              },
+              {
+                "step": 4,
+                "question": "Quel équipement as-tu ?",
+                "type": "multi-select",
+                "options": ["Haltères 🏋️", "Barre 💪", "Machines ⚙️", "Poids du corps 🤸"]
+              }
+            ],
+            "progress_bar": "Barre de progression visuelle 4 étapes"
+          },
+          "flow": [
+            "1. Répond au quiz (4 étapes)",
+            "2. Voit programmes recommandés basés sur profil",
+            "3. Clique 'Commencer ce programme'",
+            "4. → Bascule auto vers Training tab",
+            "5. Mode guidé s'active avec preview du programme",
+            "6. Lance la séance → Interface guidée"
+          ],
+          "program_card": {
+            "header": "Gradient de couleur selon objectif + icône",
+            "stats": "Jours/semaine, nombre de séances",
+            "days_preview": "Liste des jours avec nombre d'exercices et sets",
+            "cta": "Bouton 'Commencer ce programme'"
+          }
+        },
+        "history_page.dart": {
+          "role": "Historique et filtrage des sessions",
+          "features": [
+            "Search bar (recherche par nom d'exercice ou équipement)",
+            "Filtres temporels (Tous, Semaine, Mois, 3 Mois)",
+            "Filtre par exercice (dropdown dynamique)",
+            "Stats filtrées (total reps, sets, record) avec gradient card",
+            "Liste des sessions avec swipe-to-delete",
+            "Pull-to-refresh",
+            "Empty states intelligents"
+          ],
+          "session_card": {
+            "elements": "Date, durée, nombre de sets, total reps",
+            "details_expandable": "Liste des sets avec exercice, reps, tempo, poids, équipement",
+            "delete": "Swipe left to delete avec confirmation"
+          }
+        },
+        "account_page.dart": {
+          "role": "Profil utilisateur et statistiques",
+          "sections": [
+            {
+              "section": "Profile Header",
+              "content": "Avatar éditable, nom éditable, phrase motivante"
+            },
+            {
+              "section": "Quick Stats",
+              "content": "3 cards (Total reps, Total sets, Volume total kg)"
+            },
+            {
+              "section": "Streak Card",
+              "content": "Série actuelle 🔥 + Record personnel"
+            },
+            {
+              "section": "Weekly Progress",
+              "content": "BarChart (fl_chart) - 8 dernières semaines de reps"
+            },
+            {
+              "section": "Personal Records",
+              "content": "Top 5 PRs par exercice (max reps)"
+            },
+            {
+              "section": "Activity Heatmap",
+              "content": "GitHub-style heatmap - 56 derniers jours (8 semaines)"
+            },
+            {
+              "section": "Settings",
+              "content": "Toggle KG/LBS (SharedPreferences)"
+            }
+          ],
+          "data_source": "StatsService.calculateStats(sessions)"
+        },
+        "home_page.dart": "Page legacy (possiblement non utilisée)",
+        "detection_page.dart": "Page legacy (possiblement non utilisée)",
+        "login_page.dart": "Page legacy (possiblement non utilisée)",
+        "onboarding_page.dart": "Page legacy (possiblement non utilisée)"
+      },
+
+      "theme/": {
+        "app_theme.dart": {
+          "colors": {
+            "primary": "#F5C32E (yellow)",
+            "secondary": "#FFA500 (orange)",
+            "background": "#050505 (near black)",
+            "card_background": "Colors.white.withOpacity(0.05)",
+            "border": "Colors.white.withOpacity(0.1)"
+          },
+          "gradients": {
+            "primary": "LinearGradient([#F5C32E, #FFA500])",
+            "exercise_specific": "Couleurs par groupe musculaire"
+          },
+          "borders": "12-16px border radius",
+          "typography": {
+            "headers": "Bold, white",
+            "body": "Regular, white70",
+            "accents": "Yellow/Orange"
+          }
+        }
+      },
+
+      "widgets/": {
+        "big_button.dart": "Bouton custom (possiblement legacy)",
+        "pulse_loader.dart": "Animation de chargement pulsante"
+      }
+    },
+
+    "assets/": {
+      "models/": "Modèles TensorFlow Lite pour classification d'exercices"
+    }
+  },
+
+  "data_flow": {
+    "workout_detection_flow": [
+      "1. ESP32 (MPU6050) → données IMU brutes via BLE",
+      "2. BLEService reçoit notifications → parse bytes",
+      "3. IMUService traite et filtre données",
+      "4. Buffer de données → RepAI (TFLite inference)",
+      "5. RepAI retourne TrainingMetrics (exercise, reps, tempo, conf)",
+      "6. BLEService compte reps et détecte fin de set (30s timeout)",
+      "7. UI update via StreamBuilder (metricsStream, currentSetsStream)",
+      "8. Stop workout → WorkoutHistoryService.saveSession()",
+      "9. Session sauvegardée dans SharedPreferences"
+    ],
+    "guided_mode_flow": [
+      "1. User complète quiz dans ProgramPage",
+      "2. ProgramService.recommendPrograms(profile) → liste filtrée",
+      "3. User clique 'Commencer programme'",
+      "4. ActiveProgram créé et sauvegardé (SharedPreferences)",
+      "5. Navigation vers Training tab",
+      "6. TrainingPage détecte _activeProgram → mode guidé",
+      "7. UI Preview: affiche exercice courant, sets/reps target, progression",
+      "8. User lance workout → UI guidée active",
+      "9. BLE détecte reps → _completeCurrentSet() si >= 80% target",
+      "10. ProgramService.nextSet() → mise à jour ActiveProgram",
+      "11. Notification de repos + auto-advance",
+      "12. Répète jusqu'à fin du jour → nextDay() ou programme complété"
+    ],
+    "stats_calculation_flow": [
+      "1. AccountPage initState → charge sessions",
+      "2. StatsService.calculateStats(sessions)",
+      "3. Parcourt toutes les sessions et sets",
+      "4. Agrège: total reps/sets/volume, compteurs exercices, PRs",
+      "5. Calcule: weekly progress (8 semaines), activity heatmap (56 jours)",
+      "6. Calcule: streaks (séries consécutives de jours)",
+      "7. Retourne WorkoutStats object",
+      "8. UI affiche graphiques et cartes"
+    ]
+  },
+
+  "key_features": {
+    "1_detection_automatique": {
+      "description": "Détection temps réel des répétitions via haltère BLE",
+      "technologies": ["BLE", "TFLite", "IMU processing"],
+      "accuracy": "Classification d'exercices avec score de confiance",
+      "tempo_analysis": "Analyse du tempo d'exécution (s/rep)"
+    },
+    "2_ajout_manuel": {
+      "description": "Interface 2-step pour ajout manuel d'exercices",
+      "step1": "Sélection visuelle (grille 3x5 avec emojis et couleurs)",
+      "step2": "Formulaire détails (reps, poids KG/LBS, équipement)",
+      "ux": "Priorité à la rapidité et l'intuitivité"
+    },
+    "3_programmes_guides": {
+      "description": "Système complet de programmes avec quiz et guidage",
+      "quiz": "4 étapes pour profil utilisateur",
+      "recommendations": "Filtrage intelligent selon objectif/niveau/disponibilité",
+      "guided_workout": "Interface dédiée avec progression temps réel",
+      "auto_advance": "Passage automatique entre sets/exercices",
+      "persistence": "Sauvegarde progression dans SharedPreferences"
+    },
+    "4_historique_stats": {
+      "description": "Tracking complet avec filtres et visualisations",
+      "filtering": ["Recherche texte", "Filtres temporels", "Filtre par exercice"],
+      "charts": ["BarChart progression hebdomadaire", "Heatmap activité GitHub-style"],
+      "metrics": ["Total volume", "PRs par exercice", "Streaks", "Exercice favori"]
+    },
+    "5_ui_coherente": {
+      "description": "Design épuré et cohérent sur toute l'app",
+      "color_scheme": "Jaune/Orange sur fond noir",
+      "components": "Cards avec bordures, gradients, emojis",
+      "animations": "Pulse sur reps, transitions fluides",
+      "responsive": "Adaptation mobile optimisée"
+    }
+  },
+
+  "user_flows": {
+    "premier_lancement": [
+      "1. Ouvre l'app → AppShell avec 4 tabs",
+      "2. Tab Training par défaut → bouton 'COMMENCER'",
+      "3. Peut explorer History (vide), Account (stats 0), Programme (quiz)"
+    ],
+    "workout_libre": [
+      "1. Training tab → 'COMMENCER'",
+      "2. Workout démarre → timer, connexion BLE",
+      "3. Détection auto OU ajout manuel",
+      "4. Reps s'affichent en temps réel",
+      "5. Sets s'ajoutent à la liste",
+      "6. 'STOP' → Session sauvegardée → Snackbar confirmation",
+      "7. History et Account mis à jour"
+    ],
+    "workout_guide": [
+      "1. Programme tab → Quiz 4 étapes",
+      "2. Voit programmes recommandés",
+      "3. 'Commencer ce programme'",
+      "4. → Bascule Training tab (mode guidé)",
+      "5. Voit preview exercice + progression séance",
+      "6. 'DÉMARRER LA SÉANCE'",
+      "7. Interface guidée: exercice courant, sets/reps target, progress circle",
+      "8. Détection auto → auto-advance quand target atteint",
+      "9. Notifications de repos entre sets",
+      "10. Continue jusqu'à fin de tous les exercices",
+      "11. Session sauvegardée normalement"
+    ],
+    "consultation_stats": [
+      "1. Account tab",
+      "2. Voit quick stats (reps/sets/volume)",
+      "3. Scroll → streak, progression hebdo (chart)",
+      "4. PRs, activity heatmap",
+      "5. Toggle KG/LBS dans settings"
+    ],
+    "recherche_historique": [
+      "1. History tab",
+      "2. Search bar → tape nom exercice",
+      "3. Applique filtres temporels et exercice",
+      "4. Voit stats filtrées",
+      "5. Expand session → détails sets",
+      "6. Swipe left → delete session"
+    ]
+  },
+
+  "state_management": {
+    "pattern": "Reactive Streams (BLoC-like sans package)",
+    "implementation": {
+      "BLEService": {
+        "streams": "StreamControllers pour workout state, metrics, sets, duration",
+        "listeners": "UI subscribe via StreamBuilder",
+        "updates": "sink.add() pour propager changements"
+      },
+      "Pages": {
+        "local_state": "setState() pour UI state simple",
+        "global_state": "Streams from BLEService",
+        "persistence": "SharedPreferences pour données long-terme"
+      }
+    },
+    "data_persistence": {
+      "workout_history": "List<WorkoutSession> en JSON dans SharedPreferences",
+      "active_program": "ActiveProgram en JSON dans SharedPreferences",
+      "user_settings": "Nom, KG/LBS preference dans SharedPreferences",
+      "key_structure": {
+        "workout_history": "Liste complète des sessions",
+        "active_program": "Programme en cours si existant",
+        "user_name": "Nom personnalisé",
+        "use_kg": "bool pour unité de poids"
+      }
+    }
+  },
+
+  "ble_protocol": {
+    "device": "ESP32 avec MPU6050",
+    "connection": "BLE (flutter_blue_plus)",
+    "service_uuid": "À définir dans code",
+    "characteristic_uuid": "À définir dans code",
+    "data_format": "Bytes représentant valeurs IMU (accX, accY, accZ, gyrX, gyrY, gyrZ)",
+    "sampling_rate": "~50Hz recommandé",
+    "notifications": "Activées pour stream continu de données"
+  },
+
+  "ml_model": {
+    "framework": "TensorFlow Lite",
+    "input": {
+      "type": "Séquence de données IMU",
+      "shape": "À définir selon modèle (ex: [1, 100, 6] pour 100 samples de 6 features)",
+      "features": ["accX", "accY", "accZ", "gyrX", "gyrY", "gyrZ"]
+    },
+    "output": {
+      "exercise_class": "Index de classe d'exercice",
+      "confidence": "Score 0-1",
+      "tempo": "Temps moyen par rep calculé"
+    },
+    "classes": ["curl_biceps", "curl_marteau", "bench_press", "etc..."],
+    "preprocessing": "Normalisation, windowing dans RepAI"
+  },
+
+  "code_organization": {
+    "separation_of_concerns": {
+      "Models": "Structures de données pures (WorkoutSet, WorkoutSession, Program...)",
+      "Services": "Logique métier (BLE, ML, Stats, Persistence)",
+      "Pages": "UI et interaction utilisateur",
+      "Widgets": "Composants réutilisables",
+      "Theme": "Constantes de style"
+    },
+    "dependencies": {
+      "Pages → Services": "Pages utilisent services pour logique",
+      "Services → Models": "Services manipulent models",
+      "Services indépendants": "Chaque service a responsabilité unique"
+    }
+  },
+
+  "design_patterns": {
+    "singleton": "BLEService (instance unique)",
+    "stream": "Reactive programming avec StreamController",
+    "factory": "fromJson() constructors pour models",
+    "builder": "StreamBuilder, FutureBuilder pour UI reactive",
+    "repository": "HistoryService, ProgramService pour data access"
+  },
+
+  "ui_components": {
+    "navigation": {
+      "type": "BottomNavigationBar",
+      "tabs": [
+        {"index": 0, "label": "Training", "icon": "fitness_center"},
+        {"index": 1, "label": "Programme", "icon": "assignment"},
+        {"index": 2, "label": "Historique", "icon": "history"},
+        {"index": 3, "label": "Compte", "icon": "person"}
+      ]
+    },
+    "common_patterns": {
+      "cards": "Container avec borderRadius 12-16, border white10, background white05",
+      "gradients": "LinearGradient pour headers et accents",
+      "stats_cards": "3 colonnes avec icône, valeur, label",
+      "empty_states": "Emoji + message + CTA",
+      "lists": "ListView.builder avec cards",
+      "dialogs": "Custom avec gradient header"
+    },
+    "animations": {
+      "pulse": "AnimationController sur reps circle",
+      "transitions": "AnimatedContainer pour état changes",
+      "progress": "LinearProgressIndicator, CircularProgressIndicator"
+    }
+  },
+
+  "performance_considerations": {
+    "ble_data_rate": "Buffering pour éviter trop de ML inferences",
+    "ml_inference": "Throttling pour limiter CPU usage",
+    "ui_updates": "StreamBuilder rebuild optimisé",
+    "list_rendering": "ListView.builder pour grandes listes",
+    "persistence": "Async I/O pour SharedPreferences"
+  },
+
+  "error_handling": {
+    "ble_errors": "Try-catch sur connexion, fallback UI states",
+    "ml_errors": "Graceful degradation si modèle fail",
+    "persistence_errors": "Default values si load fail",
+    "user_feedback": "SnackBar pour succès/erreurs"
+  },
+
+  "testing_strategy": {
+    "manual_testing": "Test sur device physique pour BLE",
+    "simulator": "Possible pour UI sans BLE",
+    "test_data": "Mock sessions pour dev/test stats"
+  },
+
+  "future_enhancements": {
+    "potential_features": [
+      "Cloud sync (Firebase)",
+      "Social features (partage PRs)",
+      "Plus de programmes (intermédiaire/avancé pour autres goals)",
+      "Graphiques de progression par exercice",
+      "Recommandations de repos/récupération",
+      "Intégration nutrition",
+      "Export CSV/PDF des stats",
+      "Notifications rappel workout",
+      "Apple Watch / Wear OS support",
+      "Vidéos tutoriels exercices",
+      "Coaching IA personnalisé"
+    ],
+    "technical_debt": [
+      "Refactor legacy pages (home, detection, login, onboarding)",
+      "Tests unitaires pour services",
+      "Tests d'intégration BLE",
+      "Documentation API",
+      "Optimisation modèle ML",
+      "Gestion erreurs plus robuste"
+    ]
+  },
+
+  "deployment": {
+    "platforms": ["Android", "iOS"],
+    "requirements": {
+      "android": "BLE permissions, minSdkVersion pour BLE",
+      "ios": "BLE permissions dans Info.plist",
+      "assets": "Modèle TFLite inclus dans assets/models/"
+    },
+    "build_commands": {
+      "android": "flutter build apk --release",
+      "ios": "flutter build ios --release"
+    }
+  },
+
+  "developer_notes": {
+    "setup": [
+      "1. flutter pub get",
+      "2. Connecter device BLE (ESP32)",
+      "3. flutter run",
+      "4. Autoriser permissions BLE"
+    ],
+    "debugging": {
+      "ble_issues": "Vérifier device allumé, distance, permissions",
+      "ml_issues": "Vérifier modèle dans assets/, TFLite delegate",
+      "ui_issues": "Hot reload, vérifier streams"
+    },
+    "code_style": "Flutter/Dart conventions, lints activés"
+  },
+
+  "important_context": {
+    "user_language": "Français (toute l'UI est en français)",
+    "target_users": "Pratiquants de musculation de tous niveaux",
+    "unique_selling_points": [
+      "Haltère connectée unique",
+      "ML pour classification automatique",
+      "Programmes guidés personnalisés",
+      "UI/UX épurée et intuitive",
+      "Gratuit, offline-first"
+    ],
+    "hardware_dependency": "App nécessite haltère BLE pour détection auto (mais peut fonctionner en mode manuel uniquement)"
+  },
+
+  "git_workflow": {
+    "current_branch": "claude/ble-dumbbell-auto-connect-01Uk4DKwKSJdXH8gbMwiV4RP",
+    "recent_commits": [
+      "feat: Ajout système de programmes guidés avec quiz et tracking",
+      "feat: Interface en 2 étapes pour ajout manuel d'exercices",
+      "feat: Refonte UI complète de l'app avec design épuré"
+    ],
+    "commit_convention": "Conventional Commits (feat:, fix:, refactor:, etc.)"
+  },
+
+  "summary": {
+    "what_is_this": "GymAI est une app Flutter de tracking d'entraînement musculation qui combine une haltère connectée BLE (ESP32+MPU6050) avec un modèle ML (TFLite) pour détecter automatiquement les répétitions et classifier les exercices. Elle offre aussi des programmes guidés personnalisés via quiz, un historique filtrable, et des stats visuelles de progression.",
+
+    "core_value": "Transformer l'expérience d'entraînement en rendant le tracking automatique, précis et motivant grâce à l'IoT et l'IA.",
+
+    "current_state": "App fonctionnelle avec 4 onglets majeurs (Training, Programme, Historique, Compte), détection BLE+ML, programmes guidés avec 5 programmes prédéfinis, stats avancées avec graphiques, et UI complètement revue avec design épuré jaune/orange sur fond noir.",
+
+    "next_steps_suggested": [
+      "Tester end-to-end avec hardware BLE réel",
+      "Optimiser modèle ML pour meilleure accuracy",
+      "Ajouter plus de programmes (intermédiaire/avancé)",
+      "Implémenter cloud sync",
+      "Nettoyer legacy code (pages non utilisées)"
+    ]
+  },
+
+  "meta": {
+    "generated_date": "2025-12-15",
+    "purpose": "Contexte complet du projet pour handoff à une autre IA ou développeur",
+    "completeness": "Couvre architecture, code, features, data flow, UI/UX, déploiement",
+    "usage": "Donner ce JSON + accès au code pour full context understanding"
+  }
+}
