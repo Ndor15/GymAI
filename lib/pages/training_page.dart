@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:gymai/services/ble_service.dart';
 import 'package:gymai/services/workout_history_service.dart';
 import 'package:gymai/models/workout_models.dart';
@@ -18,6 +19,7 @@ class _TrainingPageState extends State<TrainingPage>
     with SingleTickerProviderStateMixin {
   final BLEService ble = BLEService();
   final WorkoutHistoryService _historyService = WorkoutHistoryService();
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   int lastReps = 0;
   late AnimationController pulseController;
@@ -48,7 +50,7 @@ class _TrainingPageState extends State<TrainingPage>
     // Listen for sets completed to start rest timer
     ble.currentSetsStream.listen((sets) {
       if (sets.isNotEmpty && lastSetTime != sets.last.timestamp) {
-        _startRestTimer();
+        _startRestTimer(60); // Default 60s rest
         lastSetTime = sets.last.timestamp;
 
         // In guided mode, auto-advance when reps detected match target
@@ -56,6 +58,13 @@ class _TrainingPageState extends State<TrainingPage>
           final lastSet = sets.last;
           _completeCurrentSet(lastSet.reps);
         }
+      }
+    });
+
+    // Listen for rest timer notifications from BLE service
+    ble.restTimerShouldStartStream.listen((duration) {
+      if (mounted) {
+        _startRestTimer(duration);
       }
     });
 
@@ -173,22 +182,52 @@ class _TrainingPageState extends State<TrainingPage>
     }
   }
 
-  void _startRestTimer() {
+  void _startRestTimer(int duration) {
     restTimer?.cancel();
-    restSeconds = 0;
+    restSeconds = duration;
     restTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
-          restSeconds++;
+          if (restSeconds > 0) {
+            restSeconds--;
+            // When timer reaches 0, play notification sound
+            if (restSeconds == 0) {
+              _playRestCompleteSound();
+            }
+          }
         });
       }
     });
+  }
+
+  Future<void> _playRestCompleteSound() async {
+    print("🔔 Rest complete! Time to start next set");
+
+    // Try to play sound from assets
+    try {
+      await _audioPlayer.play(AssetSource('sounds/rest_complete.mp3'));
+    } catch (e) {
+      print("⚠️  Could not play sound: $e");
+      print("💡 Add a sound file at assets/sounds/rest_complete.mp3 to enable audio notification");
+    }
+
+    // Always show visual notification
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("⏰ Repos terminé ! C'est reparti 💪"),
+          duration: Duration(seconds: 2),
+          backgroundColor: Color(0xFFF5C32E),
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
     pulseController.dispose();
     restTimer?.cancel();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -1279,78 +1318,115 @@ class _TrainingPageState extends State<TrainingPage>
         const SizedBox(height: 16),
 
         // Control Buttons
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // PAUSE/RESUME button
-            GestureDetector(
-              onTap: () {
-                if (ble.isWorkoutPaused) {
-                  ble.resumeWorkout();
-                } else {
-                  ble.pauseWorkout();
-                }
-                setState(() {});
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: ble.isWorkoutPaused
-                      ? const Color(0xFF4CAF50)
-                      : const Color(0xFFFF9800),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      ble.isWorkoutPaused ? Icons.play_arrow : Icons.pause,
-                      color: Colors.black,
-                      size: 20,
+        StreamBuilder<int>(
+          stream: ble.currentSetRepsStream,
+          initialData: 0,
+          builder: (context, setRepsSnapshot) {
+            final currentSetReps = setRepsSnapshot.data ?? 0;
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // PAUSE/RESUME button
+                GestureDetector(
+                  onTap: () {
+                    if (ble.isWorkoutPaused) {
+                      ble.resumeWorkout();
+                    } else {
+                      ble.pauseWorkout();
+                    }
+                    setState(() {});
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: ble.isWorkoutPaused
+                          ? const Color(0xFF4CAF50)
+                          : const Color(0xFFFF9800),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      ble.isWorkoutPaused ? "RESUME" : "PAUSE",
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.0,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          ble.isWorkoutPaused ? Icons.play_arrow : Icons.pause,
+                          color: Colors.black,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          ble.isWorkoutPaused ? "RESUME" : "PAUSE",
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // VALIDATE SET button (only shown when there are reps in current set)
+                if (currentSetReps > 0) ...[
+                  GestureDetector(
+                    onTap: () => ble.manuallyValidateSet(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: const Color(0xFFF5C32E),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.check, color: Colors.black, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            "VALIDER ($currentSetReps)",
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // STOP button
-            GestureDetector(
-              onTap: () => ble.stopWorkout(),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: Colors.red.shade600,
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.stop, color: Colors.black, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      "STOP",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.0,
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                // STOP button
+                GestureDetector(
+                  onTap: () => ble.stopWorkout(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.red.shade600,
                     ),
-                  ],
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.stop, color: Colors.black, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          "STOP",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
 
         const SizedBox(height: 12),

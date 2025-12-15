@@ -115,11 +115,45 @@ class BLEService {
   final _sessionSavedController = StreamController<WorkoutSession>.broadcast();
   Stream<WorkoutSession> get sessionSavedStream => _sessionSavedController.stream;
 
+  // Stream to notify when rest timer should start (with recommended rest duration)
+  final _restTimerController = StreamController<int>.broadcast();
+  Stream<int> get restTimerShouldStartStream => _restTimerController.stream;
+
+  // Timer for detecting inactivity (5s without reps)
+  Timer? inactivityTimer;
+  bool hasNotifiedRestStart = false; // Flag to avoid multiple rest notifications
+
   final historyService = WorkoutHistoryService();
 
   // --------------------------------------------------
   // WORKOUT CONTROL
   // --------------------------------------------------
+  // Manually validate the current set in progress
+  void manuallyValidateSet() {
+    if (!isWorkoutActive) {
+      print("⚠️  Cannot validate set: workout not active");
+      return;
+    }
+
+    if (currentSetReps == 0) {
+      print("⚠️  No reps to validate in current set");
+      return;
+    }
+
+    print("👍 Manually validating set with $currentSetReps reps");
+
+    // Cancel timers
+    setEndTimer?.cancel();
+    inactivityTimer?.cancel();
+    hasNotifiedRestStart = false;
+
+    // Finalize the set
+    _finalizeCurrentSet();
+
+    // Notify rest timer should start (60s default for manual validation)
+    _restTimerController.add(60);
+  }
+
   // Manual entry of workout set
   void addManualSet({
     required String exercise,
@@ -209,6 +243,10 @@ class BLEService {
   void _finalizeCurrentSet() {
     if (currentSetReps == 0) return;
 
+    // Cancel inactivity timer
+    inactivityTimer?.cancel();
+    hasNotifiedRestStart = false;
+
     // Calculate average tempo
     final avgTempo = currentSetRepDurations.isEmpty
         ? 1.0
@@ -254,6 +292,9 @@ class BLEService {
     sessionTimer = null;
     setEndTimer?.cancel();
     setEndTimer = null;
+    inactivityTimer?.cancel();
+    inactivityTimer = null;
+    hasNotifiedRestStart = false;
 
     // Stop BLE
     scanTimer?.cancel();
@@ -616,6 +657,19 @@ class BLEService {
           setEndTimer = Timer(const Duration(seconds: 30), () {
             print("⏱️  30s without reps - Finalizing set...");
             _finalizeCurrentSet();
+          });
+
+          // Start/restart 5s inactivity timer to detect rest period
+          hasNotifiedRestStart = false; // Reset flag for new rep
+          inactivityTimer?.cancel();
+          inactivityTimer = Timer(const Duration(seconds: 5), () {
+            // 5s without new rep detected - notify rest should start
+            if (currentSetReps > 0 && !hasNotifiedRestStart) {
+              print("⏱️  5s inactivity detected with $currentSetReps reps - Rest should start");
+              hasNotifiedRestStart = true;
+              // Recommend 60s rest by default
+              _restTimerController.add(60);
+            }
           });
 
           final tempo = _tempo(duration);
