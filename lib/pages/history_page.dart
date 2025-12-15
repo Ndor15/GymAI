@@ -421,10 +421,8 @@ class _HistoryPageState extends State<HistoryPage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFF5C32E), Color(0xFFFFA500)],
-                ),
-                borderRadius: BorderRadius.circular(16),
+                color: const Color(0xFFF5C32E),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -548,20 +546,18 @@ class _HistoryPageState extends State<HistoryPage> {
             bottom: 18,
           ),
           leading: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFFF5C32E), Color(0xFFFFA500)],
-              ),
+              color: Color(0xFFF5C32E),
             ),
             child: Center(
               child: Text(
                 '${session.sets.length}',
                 style: const TextStyle(
                   color: Colors.black,
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
               ),

@@ -189,16 +189,7 @@ class _ProgramPageState extends State<ProgramPage> {
           // Header
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.yellow.withOpacity(0.2),
-                  AppTheme.background,
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
+            color: AppTheme.background,
             child: Column(
               children: [
                 const Row(
@@ -372,25 +363,25 @@ class _ProgramPageState extends State<ProgramPage> {
             child: GestureDetector(
               onTap: () => setState(() => _selectedGoal = goal['id']),
               child: Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(isSelected ? 0.1 : 0.03),
-                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.white.withOpacity(isSelected ? 0.08 : 0.03),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isSelected
                         ? goal['color']
                         : Colors.white.withOpacity(0.1),
-                    width: 2,
+                    width: 1.5,
                   ),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      width: 56,
-                      height: 56,
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
-                        color: goal['color'].withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
+                        color: goal['color'].withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Center(
                         child: Text(
@@ -458,15 +449,15 @@ class _ProgramPageState extends State<ProgramPage> {
             child: GestureDetector(
               onTap: () => setState(() => _selectedLevel = level['id']),
               child: Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(isSelected ? 0.1 : 0.03),
-                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.white.withOpacity(isSelected ? 0.08 : 0.03),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isSelected
                         ? AppTheme.yellow
                         : Colors.white.withOpacity(0.1),
-                    width: 2,
+                    width: 1.5,
                   ),
                 ),
                 child: Row(
@@ -534,15 +525,15 @@ class _ProgramPageState extends State<ProgramPage> {
             child: GestureDetector(
               onTap: () => setState(() => _selectedDays = option['days']),
               child: Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(isSelected ? 0.1 : 0.03),
-                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.white.withOpacity(isSelected ? 0.08 : 0.03),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isSelected
                         ? AppTheme.yellow
                         : Colors.white.withOpacity(0.1),
-                    width: 2,
+                    width: 1.5,
                   ),
                 ),
                 child: Row(
@@ -614,15 +605,15 @@ class _ProgramPageState extends State<ProgramPage> {
                 });
               },
               child: Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(isSelected ? 0.1 : 0.03),
-                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.white.withOpacity(isSelected ? 0.08 : 0.03),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isSelected
                         ? AppTheme.yellow
                         : Colors.white.withOpacity(0.1),
-                    width: 2,
+                    width: 1.5,
                   ),
                 ),
                 child: Row(
@@ -666,16 +657,7 @@ class _ProgramPageState extends State<ProgramPage> {
           // Header
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.yellow.withOpacity(0.2),
-                  AppTheme.background,
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
+            color: AppTheme.background,
             child: Row(
               children: [
                 IconButton(
@@ -790,14 +772,9 @@ class _ProgramPageState extends State<ProgramPage> {
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  goalData['color'].withOpacity(0.3),
-                  goalData['color'].withOpacity(0.1),
-                ],
-              ),
+              color: goalData['color'].withOpacity(0.1),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),

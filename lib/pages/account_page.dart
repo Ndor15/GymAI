@@ -144,20 +144,11 @@ class _AccountPageState extends State<AccountPage> {
         GestureDetector(
           onTap: _editName,
           child: Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
+            width: 64,
+            height: 64,
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [AppTheme.yellow, Color(0xFFFFA500)],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.yellow.withOpacity(0.3),
-                  blurRadius: 15,
-                  spreadRadius: 2,
-                ),
-              ],
+              color: AppTheme.yellow,
             ),
             child: Center(
               child: Text(
@@ -247,13 +238,13 @@ class _AccountPageState extends State<AccountPage> {
 
   Widget _buildStatCard(String emoji, String value, String label, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1.5,
+          color: color.withOpacity(0.25),
+          width: 1,
         ),
       ),
       child: Column(
@@ -290,19 +281,8 @@ class _AccountPageState extends State<AccountPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppTheme.yellow, Color(0xFFFFA500)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.yellow.withOpacity(0.3),
-            blurRadius: 15,
-            spreadRadius: 2,
-          ),
-        ],
+        color: AppTheme.yellow,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
@@ -376,10 +356,10 @@ class _AccountPageState extends State<AccountPage> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Colors.white.withOpacity(0.1),
           width: 1,
@@ -483,12 +463,8 @@ class _AccountPageState extends State<AccountPage> {
                     barRods: [
                       BarChartRodData(
                         toY: entry.value.totalReps.toDouble(),
-                        gradient: const LinearGradient(
-                          colors: [AppTheme.yellow, Color(0xFFFFA500)],
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                        ),
-                        width: 16,
+                        color: AppTheme.yellow,
+                        width: 14,
                         borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(4),
                         ),
@@ -513,10 +489,10 @@ class _AccountPageState extends State<AccountPage> {
       ..sort((a, b) => b.value.compareTo(a.value));
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Colors.white.withOpacity(0.1),
           width: 1,
@@ -617,10 +593,10 @@ class _AccountPageState extends State<AccountPage> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Colors.white.withOpacity(0.1),
           width: 1,
@@ -709,10 +685,10 @@ class _AccountPageState extends State<AccountPage> {
 
   Widget _buildSettings() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Colors.white.withOpacity(0.1),
           width: 1,

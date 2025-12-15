@@ -974,24 +974,17 @@ class _TrainingPageState extends State<TrainingPage>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
+                  width: 100,
+                  height: 100,
+                  decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       colors: [Color(0xFFF5C32E), Color(0xFFFFA500)],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFF5C32E).withOpacity(0.3),
-                        blurRadius: 30,
-                        spreadRadius: 5,
-                      ),
-                    ],
                   ),
                   child: const Icon(
                     Icons.fitness_center,
-                    size: 60,
+                    size: 50,
                     color: Colors.black,
                   ),
                 ),
@@ -1016,32 +1009,25 @@ class _TrainingPageState extends State<TrainingPage>
                 GestureDetector(
                   onTap: () => ble.startWorkout(),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 48),
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 40),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: BorderRadius.circular(12),
                       gradient: const LinearGradient(
                         colors: [Color(0xFFF5C32E), Color(0xFFFFA500)],
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFF5C32E).withOpacity(0.4),
-                          blurRadius: 25,
-                          spreadRadius: 3,
-                        ),
-                      ],
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.play_arrow, color: Colors.black, size: 28),
-                        SizedBox(width: 12),
+                        Icon(Icons.play_arrow, color: Colors.black, size: 24),
+                        SizedBox(width: 8),
                         Text(
                           "COMMENCER",
                           style: TextStyle(
                             color: Colors.black,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.5,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1,
                           ),
                         ),
                       ],
@@ -1099,21 +1085,19 @@ class _TrainingPageState extends State<TrainingPage>
                     child: Row(
                       children: [
                         Container(
-                          width: 40,
-                          height: 40,
+                          width: 36,
+                          height: 36,
                           decoration: const BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [Color(0xFFF5C32E), Color(0xFFFFA500)],
-                            ),
+                            color: Color(0xFFF5C32E),
                           ),
                           child: Center(
                             child: Text(
                               '${session.sets.length}',
                               style: const TextStyle(
                                 color: Colors.black,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
                               ),
                             ),
                           ),
@@ -1180,14 +1164,7 @@ class _TrainingPageState extends State<TrainingPage>
                     gradient: const LinearGradient(
                       colors: [Color(0xFFF5C32E), Color(0xFFFFA500)],
                     ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFF5C32E).withOpacity(0.3),
-                        blurRadius: 15,
-                        spreadRadius: 2,
-                      ),
-                    ],
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
                     children: [
@@ -1316,22 +1293,12 @@ class _TrainingPageState extends State<TrainingPage>
                 setState(() {});
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  gradient: LinearGradient(
-                    colors: ble.isWorkoutPaused
-                        ? [const Color(0xFF4CAF50), const Color(0xFF66BB6A)]
-                        : [const Color(0xFFFFA726), const Color(0xFFFF9800)],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (ble.isWorkoutPaused ? Colors.green : Colors.orange)
-                          .withOpacity(0.3),
-                      blurRadius: 15,
-                      spreadRadius: 1,
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(10),
+                  color: ble.isWorkoutPaused
+                      ? const Color(0xFF4CAF50)
+                      : const Color(0xFFFF9800),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1360,19 +1327,10 @@ class _TrainingPageState extends State<TrainingPage>
             GestureDetector(
               onTap: () => ble.stopWorkout(),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  gradient: LinearGradient(
-                    colors: [Colors.red.shade400, Colors.red.shade600],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.red.withOpacity(0.3),
-                      blurRadius: 15,
-                      spreadRadius: 1,
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.red.shade600,
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1672,53 +1630,36 @@ class _TrainingPageState extends State<TrainingPage>
                         );
                       },
                       child: Container(
-                        width: 170,
-                        height: 170,
+                        width: 160,
+                        height: 160,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: const SweepGradient(
-                            colors: [
-                              Color(0xFFFFEB3B),
-                              Color(0xFFFFC107),
-                              Color(0xFFFFEB3B),
-                            ],
+                          border: Border.all(
+                            color: const Color(0xFFF5C32E),
+                            width: 8,
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color:
-                              Colors.yellowAccent.withOpacity(0.4),
-                              blurRadius: 25,
-                              spreadRadius: 4,
+                          color: const Color(0xFF101010),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              "Reps",
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              reps.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 48,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ],
-                        ),
-                        child: Container(
-                          margin: const EdgeInsets.all(12),
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Color(0xFF101010),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text(
-                                "Reps",
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                reps.toString(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 48,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
                     ),
