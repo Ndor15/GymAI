@@ -154,6 +154,38 @@ class BLEService {
     _restTimerController.add(60);
   }
 
+  // Manually add a rep to current set
+  void addManualRep() {
+    if (!isWorkoutActive) {
+      print("⚠️  Cannot add rep: workout not active");
+      return;
+    }
+
+    currentSetReps++;
+    _currentSetRepsController.add(currentSetReps);
+    print("➕ Manual rep added (current set: $currentSetReps reps)");
+
+    // Start/restart timers
+    setEndTimer?.cancel();
+    setEndTimer = Timer(const Duration(seconds: 30), () {
+      print("⏱️  30s without reps - Finalizing set...");
+      _finalizeCurrentSet();
+    });
+
+    hasNotifiedRestStart = false;
+    inactivityTimer?.cancel();
+  }
+
+  // Manually remove a rep from current set
+  void removeManualRep() {
+    if (!isWorkoutActive) return;
+    if (currentSetReps == 0) return;
+
+    currentSetReps--;
+    _currentSetRepsController.add(currentSetReps);
+    print("➖ Manual rep removed (current set: $currentSetReps reps)");
+  }
+
   // Manual entry of workout set
   void addManualSet({
     required String exercise,

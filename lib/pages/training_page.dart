@@ -1742,6 +1742,71 @@ class _TrainingPageState extends State<TrainingPage>
 
                     const SizedBox(height: 20),
 
+                    // Manual rep counter buttons
+                    StreamBuilder<int>(
+                      stream: ble.currentSetRepsStream,
+                      initialData: 0,
+                      builder: (context, snapshot) {
+                        final currentSetReps = snapshot.data ?? 0;
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Remove rep button
+                            GestureDetector(
+                              onTap: currentSetReps > 0 ? () => ble.removeManualRep() : null,
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: currentSetReps > 0
+                                      ? Colors.red.withOpacity(0.2)
+                                      : Colors.white.withOpacity(0.05),
+                                  border: Border.all(
+                                    color: currentSetReps > 0
+                                        ? Colors.red
+                                        : Colors.white.withOpacity(0.2),
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.remove,
+                                  color: currentSetReps > 0
+                                      ? Colors.red
+                                      : Colors.white.withOpacity(0.3),
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            // Add rep button
+                            GestureDetector(
+                              onTap: () => ble.addManualRep(),
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: const Color(0xFFF5C32E).withOpacity(0.2),
+                                  border: Border.all(
+                                    color: const Color(0xFFF5C32E),
+                                    width: 2,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.add,
+                                  color: Color(0xFFF5C32E),
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 16),
+
                     // Tempo chip
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 250),
