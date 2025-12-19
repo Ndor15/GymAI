@@ -100,3 +100,52 @@ class WorkoutSession {
     }
   }
 }
+
+class WorkoutPost {
+  final String id; // Unique identifier
+  final WorkoutSession session;
+  final String? photoPath; // Local path to photo (optional)
+  final String? caption; // User caption (optional)
+  final DateTime publishedAt;
+
+  WorkoutPost({
+    required this.id,
+    required this.session,
+    this.photoPath,
+    this.caption,
+    required this.publishedAt,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'session': session.toJson(),
+        if (photoPath != null) 'photoPath': photoPath,
+        if (caption != null) 'caption': caption,
+        'publishedAt': publishedAt.toIso8601String(),
+      };
+
+  factory WorkoutPost.fromJson(Map<String, dynamic> json) => WorkoutPost(
+        id: json['id'] as String,
+        session: WorkoutSession.fromJson(json['session'] as Map<String, dynamic>),
+        photoPath: json['photoPath'] as String?,
+        caption: json['caption'] as String?,
+        publishedAt: DateTime.parse(json['publishedAt'] as String),
+      );
+
+  String get formattedPublishedTime {
+    final now = DateTime.now();
+    final difference = now.difference(publishedAt);
+
+    if (difference.inMinutes < 1) {
+      return "À l'instant";
+    } else if (difference.inHours < 1) {
+      return "Il y a ${difference.inMinutes}min";
+    } else if (difference.inDays < 1) {
+      return "Il y a ${difference.inHours}h";
+    } else if (difference.inDays < 7) {
+      return "Il y a ${difference.inDays}j";
+    } else {
+      return "${publishedAt.day}/${publishedAt.month}/${publishedAt.year}";
+    }
+  }
+}

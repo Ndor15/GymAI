@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
+import 'pages/home_page.dart';
 import 'pages/training_page.dart';
-import 'pages/program_page.dart';
 import 'pages/history_page.dart';
 import 'pages/account_page.dart';
-import 'services/ble_service.dart';
 import 'theme/app_theme.dart';
 
 class AppShell extends StatefulWidget {
@@ -15,7 +14,6 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int index = 0;
-  final BLEService bleService = BLEService();
 
   late final List<Widget> pages;
 
@@ -23,8 +21,8 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     pages = [
+      const HomePage(),
       const TrainingPage(),
-      ProgramPage(bleService: bleService),
       const HistoryPage(),
       const AccountPage(),
     ];
@@ -64,12 +62,12 @@ class _AppShellState extends State<AppShell> {
           showUnselectedLabels: true,
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.fitness_center),
-              label: "Training",
+              icon: Icon(Icons.home),
+              label: "Home",
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.assignment),
-              label: "Programme",
+              icon: Icon(Icons.fitness_center),
+              label: "Training",
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.history),
