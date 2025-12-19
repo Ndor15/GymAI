@@ -29,7 +29,8 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadData() async {
     final posts = await _postService.getAllPosts();
     final stats = await _postService.getStats();
-    final programs = await ProgramService.getRecommendedPrograms();
+    // TODO: Add getRecommendedPrograms() to ProgramService
+    final programs = <WorkoutProgram>[]; // Empty for now
 
     if (mounted) {
       setState(() {
@@ -115,7 +116,7 @@ class _HomePageState extends State<HomePage> {
                             children: [
                               _buildStatItem(
                                 '${_stats['totalWorkouts'] ?? 0}',
-                                'S�ances',
+                                'Séances',
                                 Icons.fitness_center,
                               ),
                               _buildStatItem(
@@ -145,7 +146,7 @@ class _HomePageState extends State<HomePage> {
                             const Icon(Icons.assignment, color: AppTheme.yellow, size: 20),
                             const SizedBox(width: 8),
                             const Text(
-                              'Programmes recommand�s',
+                              'Programmes recommandés',
                               style: TextStyle(
                                 color: AppTheme.yellow,
                                 fontSize: 18,
@@ -230,7 +231,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                                 const SizedBox(height: 8),
                                 const Text(
-                                  'Commence une s�ance pour cr�er ton premier post !',
+                                  'Commence une séance pour créer ton premier post !',
                                   style: TextStyle(
                                     color: Colors.white38,
                                     fontSize: 14,
@@ -282,6 +283,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildProgramCard(WorkoutProgram program) {
+    // Get icon based on goal
+    String getIconForGoal(String goal) {
+      switch (goal) {
+        case 'muscle':
+          return '💪';
+        case 'strength':
+          return '🏋️';
+        case 'endurance':
+          return '🏃';
+        case 'weight_loss':
+          return '🔥';
+        default:
+          return '🎯';
+      }
+    }
+
     return Container(
       width: 160,
       margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -300,7 +317,7 @@ class _HomePageState extends State<HomePage> {
           Row(
             children: [
               Text(
-                program.icon,
+                getIconForGoal(program.goal),
                 style: const TextStyle(fontSize: 24),
               ),
               const Spacer(),
@@ -311,7 +328,7 @@ class _HomePageState extends State<HomePage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${program.totalDays}j',
+                  '${program.daysPerWeek}j',
                   style: const TextStyle(
                     color: AppTheme.yellow,
                     fontSize: 11,
@@ -510,7 +527,7 @@ class _HomePageState extends State<HomePage> {
           style: TextStyle(color: Colors.white),
         ),
         content: const Text(
-          'Cette action est irr�versible.',
+          'Cette action est irréversible.',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
