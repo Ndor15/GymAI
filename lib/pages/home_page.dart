@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:gymai/models/workout_models.dart';
-import 'package:gymai/services/workout_post_service.dart';
+import 'package:gymai/services/firestore_post_service.dart';
 import 'package:gymai/services/program_service.dart';
 import 'package:gymai/models/program_models.dart';
 import 'package:gymai/theme/app_theme.dart';
@@ -14,7 +14,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final WorkoutPostService _postService = WorkoutPostService();
+  final FirestorePostService _postService = FirestorePostService();
   List<WorkoutPost> _posts = [];
   Map<String, dynamic> _stats = {};
   List<WorkoutProgram> _programs = [];
@@ -27,7 +27,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadData() async {
-    final posts = await _postService.getAllPosts();
+    final posts = await _postService.getUserPosts();
     final stats = await _postService.getStats();
     // TODO: Add getRecommendedPrograms() to ProgramService
     final programs = <WorkoutProgram>[]; // Empty for now

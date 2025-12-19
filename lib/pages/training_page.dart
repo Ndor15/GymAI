@@ -7,7 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:gymai/services/ble_service.dart';
 import 'package:gymai/services/workout_history_service.dart';
-import 'package:gymai/services/workout_post_service.dart';
+import 'package:gymai/services/firestore_post_service.dart';
 import 'package:gymai/models/workout_models.dart';
 import 'package:gymai/models/program_models.dart';
 import 'package:gymai/services/program_service.dart';
@@ -23,7 +23,7 @@ class _TrainingPageState extends State<TrainingPage>
     with SingleTickerProviderStateMixin {
   final BLEService ble = BLEService();
   final WorkoutHistoryService _historyService = WorkoutHistoryService();
-  final WorkoutPostService _postService = WorkoutPostService();
+  final FirestorePostService _postService = FirestorePostService();
   final AudioPlayer _audioPlayer = AudioPlayer();
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -413,12 +413,13 @@ class _TrainingPageState extends State<TrainingPage>
                   final post = WorkoutPost(
                     id: DateTime.now().millisecondsSinceEpoch.toString(),
                     session: session,
-                    photoPath: photoPath,
+                    photoPath: null, // Will be set to Firebase Storage URL
                     caption: captionController.text.trim().isEmpty ? null : captionController.text.trim(),
                     publishedAt: DateTime.now(),
                   );
 
-                  await _postService.addPost(post);
+                  // Upload to Firestore and Firebase Storage
+                  await _postService.addPost(post, localPhotoPath: photoPath);
 
                   if (context.mounted) {
                     Navigator.pop(context, true);
