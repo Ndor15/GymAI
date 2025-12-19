@@ -115,7 +115,7 @@ class _HomePageState extends State<HomePage> {
                             children: [
                               _buildStatItem(
                                 '${_stats['totalWorkouts'] ?? 0}',
-                                'Séances',
+                                'Sï¿½ances',
                                 Icons.fitness_center,
                               ),
                               _buildStatItem(
@@ -145,7 +145,7 @@ class _HomePageState extends State<HomePage> {
                             const Icon(Icons.assignment, color: AppTheme.yellow, size: 20),
                             const SizedBox(width: 8),
                             const Text(
-                              'Programmes recommandés',
+                              'Programmes recommandï¿½s',
                               style: TextStyle(
                                 color: AppTheme.yellow,
                                 fontSize: 18,
@@ -230,7 +230,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                                 const SizedBox(height: 8),
                                 const Text(
-                                  'Commence une séance pour créer ton premier post !',
+                                  'Commence une sï¿½ance pour crï¿½er ton premier post !',
                                   style: TextStyle(
                                     color: Colors.white38,
                                     fontSize: 14,
@@ -443,7 +443,7 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     _buildPostStat(
                       Icons.fitness_center,
-                      '${post.session.sets.length} séries',
+                      '${post.session.sets.length} sÃ©ries',
                     ),
                     const SizedBox(width: 16),
                     _buildPostStat(
@@ -466,7 +466,7 @@ class _HomePageState extends State<HomePage> {
                     const Icon(Icons.calendar_today, color: Colors.white38, size: 14),
                     const SizedBox(width: 6),
                     Text(
-                      '${post.session.formattedDate} " ${post.session.date.hour}:${post.session.date.minute.toString().padLeft(2, '0')}',
+                      '${post.session.formattedDate} â€¢ ${post.session.date.hour}:${post.session.date.minute.toString().padLeft(2, '0')}',
                       style: const TextStyle(
                         color: Colors.white38,
                         fontSize: 13,
@@ -510,7 +510,7 @@ class _HomePageState extends State<HomePage> {
           style: TextStyle(color: Colors.white),
         ),
         content: const Text(
-          'Cette action est irréversible.',
+          'Cette action est irrï¿½versible.',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
