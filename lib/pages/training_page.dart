@@ -312,7 +312,7 @@ class _TrainingPageState extends State<TrainingPage>
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: Image.file(
-                            File(photoPath),
+                            File(photoPath!),
                             height: 200,
                             width: double.infinity,
                             fit: BoxFit.cover,
