@@ -38,6 +38,38 @@ class _TrainingPageState extends State<TrainingPage>
   ActiveProgram? _activeProgram;
   bool _isGuidedMode = false;
 
+  // Selected exercise for current set
+  Map<String, dynamic>? _selectedExercise;
+
+  // Favorite exercises (quick access)
+  final List<Map<String, dynamic>> _favoriteExercises = [
+    {
+      'name': 'Développé couché',
+      'icon': '🏋️',
+      'color': const Color(0xFFE91E63),
+    },
+    {
+      'name': 'Curl biceps',
+      'icon': '💪',
+      'color': const Color(0xFF2196F3),
+    },
+    {
+      'name': 'Squat',
+      'icon': '🦵',
+      'color': const Color(0xFFFF9800),
+    },
+    {
+      'name': 'Rowing',
+      'icon': '🚣',
+      'color': const Color(0xFF4CAF50),
+    },
+    {
+      'name': 'Développé militaire',
+      'icon': '🎖️',
+      'color': const Color(0xFF00BCD4),
+    },
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -238,6 +270,146 @@ class _TrainingPageState extends State<TrainingPage>
           backgroundColor: Color(0xFFF5C32E),
         ),
       );
+    }
+  }
+
+  Future<void> _handleValidateSet(int reps) async {
+    // If an exercise is selected, ask for weight
+    if (_selectedExercise != null) {
+      final weightController = TextEditingController();
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Text(
+                _selectedExercise!['icon'] as String,
+                style: const TextStyle(fontSize: 28),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _selectedExercise!['name'] as String,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      '$reps reps',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Poids utilisé (optionnel)',
+                style: TextStyle(
+                  color: Color(0xFFF5C32E),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: weightController,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 18),
+                decoration: InputDecoration(
+                  hintText: 'Ex: 20',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                  suffixText: 'kg',
+                  suffixStyle: const TextStyle(color: Colors.white54),
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.05),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFF5C32E)),
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Annuler', style: TextStyle(color: Colors.white54)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF5C32E),
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Valider', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true && mounted) {
+        final weight = double.tryParse(weightController.text.trim());
+        final exerciseName = _selectedExercise!['name'] as String;
+        final exerciseIcon = _selectedExercise!['icon'] as String;
+
+        // Add manual set with exercise and weight
+        ble.addManualSet(
+          exercise: exerciseName,
+          reps: reps,
+          weight: weight,
+          equipment: null,
+        );
+
+        // Clear selected exercise
+        setState(() {
+          _selectedExercise = null;
+        });
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Text(exerciseIcon, style: const TextStyle(fontSize: 20)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '$exerciseName ajouté : $reps reps${weight != null ? ' @ ${weight}kg' : ''}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF2E7D32),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } else {
+      // No exercise selected, just validate the set normally
+      ble.manuallyValidateSet();
     }
   }
 
@@ -997,20 +1169,12 @@ class _TrainingPageState extends State<TrainingPage>
           final isActive = snapshot.data ?? false;
           if (!isActive) return const SizedBox.shrink();
 
-          return FloatingActionButton.extended(
+          return FloatingActionButton(
             onPressed: _showManualEntryDialog,
             backgroundColor: const Color(0xFFF5C32E),
             foregroundColor: Colors.black,
             elevation: 8,
-            icon: const Icon(Icons.add_circle, size: 24),
-            label: const Text(
-              'Exercice',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-                letterSpacing: 0.5,
-              ),
-            ),
+            child: const Icon(Icons.add, size: 28),
           );
         },
       ),
@@ -1389,7 +1553,7 @@ class _TrainingPageState extends State<TrainingPage>
                 // VALIDATE SET button (only shown when there are reps in current set)
                 if (currentSetReps > 0) ...[
                   GestureDetector(
-                    onTap: () => ble.manuallyValidateSet(),
+                    onTap: () => _handleValidateSet(currentSetReps),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
                       decoration: BoxDecoration(
@@ -1497,6 +1661,88 @@ class _TrainingPageState extends State<TrainingPage>
         ),
 
         const SizedBox(height: 6),
+
+        // Favorite Exercises (quick select)
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_selectedExercise != null) ...[
+                Row(
+                  children: [
+                    const Icon(Icons.fitness_center, color: Color(0xFFF5C32E), size: 16),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Exercice sélectionné:',
+                      style: TextStyle(
+                        color: Color(0xFFF5C32E),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+              SizedBox(
+                height: 50,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _favoriteExercises.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final exercise = _favoriteExercises[index];
+                    final isSelected = _selectedExercise == exercise;
+
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedExercise = isSelected ? null : exercise;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? (exercise['color'] as Color).withOpacity(0.2)
+                              : Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(25),
+                          border: Border.all(
+                            color: isSelected
+                                ? exercise['color'] as Color
+                                : Colors.white.withOpacity(0.2),
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              exercise['icon'] as String,
+                              style: const TextStyle(fontSize: 20),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              exercise['name'] as String,
+                              style: TextStyle(
+                                color: isSelected ? exercise['color'] as Color : Colors.white,
+                                fontSize: 13,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
 
         // Current Set in Progress
         StreamBuilder<int>(
