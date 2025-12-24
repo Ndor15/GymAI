@@ -1966,22 +1966,22 @@ class _TrainingPageState extends State<TrainingPage>
                                 const SizedBox(height: 2),
                                 Row(
                                   children: [
-                                    const Icon(
-                                      Icons.speed,
-                                      color: Colors.white70,
-                                      size: 12,
-                                    ),
+                                    // const Icon(
+                                    //   Icons.speed,
+                                    //   color: Colors.white70,
+                                    //   size: 12,
+                                    // ),
                                     const SizedBox(width: 4),
-                                    Flexible(
-                                      child: Text(
-                                        set.formattedTempo,
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 11,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
+                                    // Flexible(
+                                    //   child: Text(
+                                    //     set.formattedTempo,
+                                    //     style: const TextStyle(
+                                    //       color: Colors.white70,
+                                    //       fontSize: 11,
+                                    //     ),
+                                    //     overflow: TextOverflow.ellipsis,
+                                    //   ),
+                                    // ),
                                   ],
                                 ),
                               ],
