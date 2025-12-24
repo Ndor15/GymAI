@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "610133243054",
+    "project_id": "enhance-e1b85",
+    "storage_bucket": "enhance-e1b85.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:610133243054:android:d4e5e84140cb269ab7293f",
+        "android_client_info": {
+          "package_name": "com.example.gymai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAm5RE11CDbhZwfNhDCQi27lFZFCPSa9ak"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:610133243054:android:63a71f4619a9d000b7293f",
+        "android_client_info": {
+          "package_name": "enhance.android"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAm5RE11CDbhZwfNhDCQi27lFZFCPSa9ak"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
