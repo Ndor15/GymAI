@@ -270,11 +270,13 @@ class _TrainingPageState extends State<TrainingPage>
                 ),
               ],
             ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   // Session stats
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -314,7 +316,7 @@ class _TrainingPageState extends State<TrainingPage>
                           borderRadius: BorderRadius.circular(12),
                           child: Image.file(
                             File(photoPath!),
-                            height: 200,
+                            height: 150,
                             width: double.infinity,
                             fit: BoxFit.cover,
                           ),
@@ -347,7 +349,9 @@ class _TrainingPageState extends State<TrainingPage>
                               final photo = await _imagePicker.pickImage(source: ImageSource.camera);
                               if (photo != null) {
                                 final savedPath = await _savePhoto(photo.path);
-                                setState(() => photoPath = savedPath);
+                                setState(() {
+                                  photoPath = savedPath;
+                                });
                               }
                             },
                           ),
@@ -361,7 +365,9 @@ class _TrainingPageState extends State<TrainingPage>
                               final photo = await _imagePicker.pickImage(source: ImageSource.gallery);
                               if (photo != null) {
                                 final savedPath = await _savePhoto(photo.path);
-                                setState(() => photoPath = savedPath);
+                                setState(() {
+                                  photoPath = savedPath;
+                                });
                               }
                             },
                           ),
