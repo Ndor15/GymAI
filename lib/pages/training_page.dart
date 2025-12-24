@@ -1450,46 +1450,43 @@ class _TrainingPageState extends State<TrainingPage>
 
         const SizedBox(height: 6),
 
-        // BLE Connection Status
+        // BLE Connection Status (only show when connected)
         StreamBuilder<bool>(
           stream: ble.onDetected,
           initialData: false,
           builder: (context, snapshot) {
             final connected = snapshot.data ?? false;
+
+            // Only show when haltères are connected
+            if (!connected) {
+              return const SizedBox.shrink();
+            }
+
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               margin: const EdgeInsets.symmetric(horizontal: 24),
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(999),
-                color: connected
-                    ? Colors.greenAccent.withOpacity(0.12)
-                    : Colors.yellowAccent.withOpacity(0.1),
+                color: Colors.greenAccent.withOpacity(0.12),
                 border: Border.all(
-                  color: connected
-                      ? Colors.greenAccent
-                      : Colors.yellowAccent,
+                  color: Colors.greenAccent,
                   width: 1.2,
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    connected ? Icons.flash_on : Icons.watch,
-                    color:
-                    connected ? Colors.greenAccent : Colors.yellowAccent,
+                  const Icon(
+                    Icons.flash_on,
+                    color: Colors.greenAccent,
                     size: 18,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    connected
-                        ? "Haltères détectées"
-                        : "En attente des haltères",
+                  const Text(
+                    "Haltères détectées",
                     style: TextStyle(
-                      color: connected
-                          ? Colors.greenAccent
-                          : Colors.yellowAccent,
+                      color: Colors.greenAccent,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -1827,68 +1824,68 @@ class _TrainingPageState extends State<TrainingPage>
                       },
                     ),
 
-                    const SizedBox(height: 16),
-
-                    // Tempo chip
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        color: tempoColor(tempo).withOpacity(0.12),
-                        border: Border.all(
-                          color: tempoColor(tempo),
-                          width: 1.2,
+                    // Tempo chip (only show when detected)
+                    if (tempo != "en attente") ...[
+                      const SizedBox(height: 16),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: tempoColor(tempo).withOpacity(0.12),
+                          border: Border.all(
+                            color: tempoColor(tempo),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.speed,
+                              size: 18,
+                              color: tempoColor(tempo),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              tempo,
+                              style: TextStyle(
+                                color: tempoColor(tempo),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                    ],
+
+                    // Exercise detected (only show when detected)
+                    if (conf > 0) ...[
+                      const SizedBox(height: 12),
+                      Column(
                         children: [
-                          Icon(
-                            Icons.speed,
-                            size: 18,
-                            color: tempoColor(tempo),
-                          ),
-                          const SizedBox(width: 8),
                           Text(
-                            tempo,
-                            style: TextStyle(
-                              color: tempoColor(tempo),
-                              fontWeight: FontWeight.w500,
+                            exercise,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Confiance ${conf.toStringAsFixed(2)}",
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 13,
                             ),
                           ),
                         ],
                       ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Exercise detected
-                    Column(
-                      children: [
-                        Text(
-                          exercise,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          conf > 0
-                              ? "Confiance ${conf.toStringAsFixed(2)}"
-                              : "En attente de détection",
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
+                    ],
                   ],
                 ),
               );
