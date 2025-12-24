@@ -3,14 +3,12 @@ import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:gymai/services/ble_service.dart';
 import 'package:gymai/services/workout_history_service.dart';
-import 'package:gymai/services/firestore_post_service.dart';
 import 'package:gymai/models/workout_models.dart';
 import 'package:gymai/models/program_models.dart';
 import 'package:gymai/services/program_service.dart';
+import 'package:gymai/widgets/post_creation_dialog.dart';
 
 class TrainingPage extends StatefulWidget {
   const TrainingPage({super.key});
@@ -23,9 +21,7 @@ class _TrainingPageState extends State<TrainingPage>
     with SingleTickerProviderStateMixin {
   final BLEService ble = BLEService();
   final WorkoutHistoryService _historyService = WorkoutHistoryService();
-  final FirestorePostService _postService = FirestorePostService();
   final AudioPlayer _audioPlayer = AudioPlayer();
-  final ImagePicker _imagePicker = ImagePicker();
 
   int lastReps = 0;
   late AnimationController pulseController;
@@ -109,7 +105,20 @@ class _TrainingPageState extends State<TrainingPage>
         );
 
         // Show create post dialog
-        _showCreatePostDialog(session);
+        final posted = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => PostCreationDialog(session: session),
+        );
+
+        if (posted == true && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🎉 Post publié sur ton feed !'),
+              backgroundColor: Color(0xFF2E7D32),
+            ),
+          );
+        }
       }
     });
   }
@@ -232,330 +241,6 @@ class _TrainingPageState extends State<TrainingPage>
     }
   }
 
-  Future<void> _showCreatePostDialog(WorkoutSession session) async {
-    String? photoPath;
-    bool isUploading = false;
-    final captionController = TextEditingController();
-
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            backgroundColor: const Color(0xFF1A1A1A),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFF5C32E), Color(0xFFFFA500)],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.celebration, color: Colors.black, size: 24),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Séance terminée !',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                  // Session stats
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildDialogStat(Icons.fitness_center, '${session.sets.length}', 'Séries'),
-                            _buildDialogStat(Icons.repeat, '${session.totalReps}', 'Reps'),
-                            _buildDialogStat(Icons.timer, session.formattedDuration, 'Durée'),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Partage ta séance sur ton feed !',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Photo section
-                  if (photoPath != null)
-                    Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            File(photoPath!),
-                            height: 150,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: GestureDetector(
-                            onTap: () => setState(() => photoPath = null),
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: const BoxDecoration(
-                                color: Colors.black54,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.close, color: Colors.white, size: 20),
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  else
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildPhotoButton(
-                            icon: Icons.camera_alt,
-                            label: 'Caméra',
-                            onTap: () async {
-                              final photo = await _imagePicker.pickImage(source: ImageSource.camera);
-                              if (photo != null) {
-                                final savedPath = await _savePhoto(photo.path);
-                                setState(() {
-                                  photoPath = savedPath;
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildPhotoButton(
-                            icon: Icons.photo_library,
-                            label: 'Galerie',
-                            onTap: () async {
-                              final photo = await _imagePicker.pickImage(source: ImageSource.gallery);
-                              if (photo != null) {
-                                final savedPath = await _savePhoto(photo.path);
-                                setState(() {
-                                  photoPath = savedPath;
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  const SizedBox(height: 16),
-
-                  // Caption field
-                  TextField(
-                    controller: captionController,
-                    maxLines: 3,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Ajoute une légende (optionnel)...',
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.05),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      focusedBorder: const OutlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFFF5C32E)),
-                        borderRadius: BorderRadius.all(Radius.circular(12)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text(
-                  'Passer',
-                  style: TextStyle(color: Colors.white54),
-                ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF5C32E),
-                  foregroundColor: Colors.black,
-                  disabledBackgroundColor: Colors.grey.shade600,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                onPressed: isUploading ? null : () async {
-                  setState(() => isUploading = true);
-
-                  try {
-                    // Create post
-                    final post = WorkoutPost(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      session: session,
-                      photoPath: null, // Will be set to Firebase Storage URL
-                      caption: captionController.text.trim().isEmpty ? null : captionController.text.trim(),
-                      publishedAt: DateTime.now(),
-                    );
-
-                    // Upload to Firestore and Firebase Storage
-                    await _postService.addPost(post, localPhotoPath: photoPath);
-
-                    if (context.mounted) {
-                      Navigator.pop(context, true);
-                    }
-                  } catch (e) {
-                    setState(() => isUploading = false);
-                    if (context.mounted) {
-                      String errorMsg = 'Erreur lors de la publication';
-                      if (e.toString().contains('not authenticated')) {
-                        errorMsg = 'Firebase non configuré. Utilise le mode local pour l\'instant.';
-                      } else if (e.toString().contains('network')) {
-                        errorMsg = 'Erreur réseau. Vérifie ta connexion internet.';
-                      }
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(errorMsg),
-                          backgroundColor: Colors.red,
-                          duration: const Duration(seconds: 4),
-                          action: SnackBarAction(
-                            label: 'OK',
-                            textColor: Colors.white,
-                            onPressed: () {},
-                          ),
-                        ),
-                      );
-                    }
-                  }
-                },
-                child: isUploading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.black,
-                        ),
-                      )
-                    : const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check_circle),
-                          SizedBox(width: 8),
-                          Text('Publier', style: TextStyle(fontWeight: FontWeight.w700)),
-                        ],
-                      ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    if (result == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🎉 Post publié sur ton feed !'),
-          backgroundColor: Color(0xFF2E7D32),
-        ),
-      );
-    }
-  }
-
-  Widget _buildDialogStat(IconData icon, String value, String label) {
-    return Column(
-      children: [
-        Icon(icon, color: const Color(0xFFF5C32E), size: 24),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 12,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPhotoButton({required IconData icon, required String label, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF5C32E).withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: const Color(0xFFF5C32E),
-            width: 1.5,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: const Color(0xFFF5C32E), size: 32),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Color(0xFFF5C32E),
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<String> _savePhoto(String sourcePath) async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final fileName = 'workout_${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final savedPath = '${appDir.path}/$fileName';
-    await File(sourcePath).copy(savedPath);
-    return savedPath;
-  }
 
   @override
   void dispose() {
