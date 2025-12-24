@@ -1,10 +1,19 @@
 const functions = require('firebase-functions');
 const { OpenAI } = require('openai');
 
-// Initialize OpenAI with API key from environment
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy initialization of OpenAI (only when needed)
+let openaiInstance = null;
+
+function getOpenAI() {
+  if (!openaiInstance) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY is not configured. Run: firebase functions:secrets:set OPENAI_API_KEY');
+    }
+    openaiInstance = new OpenAI({ apiKey });
+  }
+  return openaiInstance;
+}
 
 /**
  * Generate initial workout program based on user objectives
@@ -18,6 +27,7 @@ exports.generateWorkoutProgram = functions.https.onCall(async (data, context) =>
   const { objective, level, frequency, splitType, focusGroups } = data;
 
   try {
+    const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
@@ -100,6 +110,7 @@ exports.getExerciseRecommendation = functions.https.onCall(async (data, context)
   } = data;
 
   try {
+    const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
@@ -182,6 +193,7 @@ exports.analyzeProgression = functions.https.onCall(async (data, context) => {
   const { userProfile, exerciseHistory, weeklyStats } = data;
 
   try {
+    const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
