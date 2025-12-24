@@ -432,10 +432,23 @@ class _TrainingPageState extends State<TrainingPage>
                   } catch (e) {
                     setState(() => isUploading = false);
                     if (context.mounted) {
+                      String errorMsg = 'Erreur lors de la publication';
+                      if (e.toString().contains('not authenticated')) {
+                        errorMsg = 'Firebase non configuré. Utilise le mode local pour l\'instant.';
+                      } else if (e.toString().contains('network')) {
+                        errorMsg = 'Erreur réseau. Vérifie ta connexion internet.';
+                      }
+
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Erreur: ${e.toString()}'),
+                          content: Text(errorMsg),
                           backgroundColor: Colors.red,
+                          duration: const Duration(seconds: 4),
+                          action: SnackBarAction(
+                            label: 'OK',
+                            textColor: Colors.white,
+                            onPressed: () {},
+                          ),
                         ),
                       );
                     }
@@ -1494,7 +1507,7 @@ class _TrainingPageState extends State<TrainingPage>
   Widget _buildActiveWorkoutView() {
     return Column(
       children: [
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
 
         // Session Timer + Sets Counter
         StreamBuilder<Duration>(
@@ -1630,7 +1643,7 @@ class _TrainingPageState extends State<TrainingPage>
           },
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
 
         // Control Buttons
         StreamBuilder<int>(
@@ -1744,7 +1757,7 @@ class _TrainingPageState extends State<TrainingPage>
           },
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
 
         // BLE Connection Status
         StreamBuilder<bool>(
@@ -1795,7 +1808,7 @@ class _TrainingPageState extends State<TrainingPage>
           },
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
 
         // Current Set in Progress
         StreamBuilder<int>(
@@ -1980,7 +1993,7 @@ class _TrainingPageState extends State<TrainingPage>
           },
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
 
         // Main reps display (or guided mode display)
         Expanded(
