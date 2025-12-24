@@ -5,6 +5,8 @@ import '../theme/app_theme.dart';
 import '../services/workout_history_service.dart';
 import '../services/stats_service.dart';
 import '../services/auth_service.dart';
+import '../services/objectives_service.dart';
+import 'setup_objectives_page.dart';
 
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
@@ -16,10 +18,12 @@ class AccountPage extends StatefulWidget {
 class _AccountPageState extends State<AccountPage> {
   final WorkoutHistoryService _historyService = WorkoutHistoryService();
   final AuthService _authService = AuthService();
+  final ObjectivesService _objectivesService = ObjectivesService();
   WorkoutStats? _stats;
   bool _isLoading = true;
   String _userName = "Athlète";
   bool _useKg = true;
+  bool _hasObjectives = false;
 
   @override
   void initState() {
@@ -37,10 +41,13 @@ class _AccountPageState extends State<AccountPage> {
     final userName = prefs.getString('user_name') ?? 'Athlète';
     final useKg = prefs.getBool('use_kg') ?? true;
 
+    final hasObjectives = await _objectivesService.hasCompletedSetup();
+
     setState(() {
       _stats = stats;
       _userName = userName;
       _useKg = useKg;
+      _hasObjectives = hasObjectives;
       _isLoading = false;
     });
   }
@@ -805,6 +812,36 @@ class _AccountPageState extends State<AccountPage> {
             ),
           ),
           const SizedBox(height: 20),
+          // Setup Objectives button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SetupObjectivesPage()),
+                );
+                if (result == true) {
+                  _loadData(); // Reload to update objectives status
+                }
+              },
+              icon: Icon(_hasObjectives ? Icons.edit : Icons.add_circle),
+              label: Text(
+                _hasObjectives ? 'Modifier mes objectifs' : 'Définir mes objectifs',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.yellow.withOpacity(0.15),
+                foregroundColor: AppTheme.yellow,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: AppTheme.yellow, width: 1.5),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           // Logout button
           SizedBox(
             width: double.infinity,
