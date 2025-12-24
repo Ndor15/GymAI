@@ -103,7 +103,7 @@ class _TrainingPageState extends State<TrainingPage>
     });
 
     // Listen for session saved events
-    ble.sessionSavedStream.listen((session) {
+    ble.sessionSavedStream.listen((session) async {
       if (mounted) {
         _loadRecentSessions(); // Refresh recent sessions
         ScaffoldMessenger.of(context).showSnackBar(
