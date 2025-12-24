@@ -234,6 +234,7 @@ class _TrainingPageState extends State<TrainingPage>
 
   Future<void> _showCreatePostDialog(WorkoutSession session) async {
     String? photoPath;
+    bool isUploading = false;
     final captionController = TextEditingController();
 
     final result = await showDialog<bool>(
@@ -404,35 +405,59 @@ class _TrainingPageState extends State<TrainingPage>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFF5C32E),
                   foregroundColor: Colors.black,
+                  disabledBackgroundColor: Colors.grey.shade600,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                onPressed: () async {
-                  // Create post
-                  final post = WorkoutPost(
-                    id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    session: session,
-                    photoPath: null, // Will be set to Firebase Storage URL
-                    caption: captionController.text.trim().isEmpty ? null : captionController.text.trim(),
-                    publishedAt: DateTime.now(),
-                  );
+                onPressed: isUploading ? null : () async {
+                  setState(() => isUploading = true);
 
-                  // Upload to Firestore and Firebase Storage
-                  await _postService.addPost(post, localPhotoPath: photoPath);
+                  try {
+                    // Create post
+                    final post = WorkoutPost(
+                      id: DateTime.now().millisecondsSinceEpoch.toString(),
+                      session: session,
+                      photoPath: null, // Will be set to Firebase Storage URL
+                      caption: captionController.text.trim().isEmpty ? null : captionController.text.trim(),
+                      publishedAt: DateTime.now(),
+                    );
 
-                  if (context.mounted) {
-                    Navigator.pop(context, true);
+                    // Upload to Firestore and Firebase Storage
+                    await _postService.addPost(post, localPhotoPath: photoPath);
+
+                    if (context.mounted) {
+                      Navigator.pop(context, true);
+                    }
+                  } catch (e) {
+                    setState(() => isUploading = false);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Erreur: ${e.toString()}'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   }
                 },
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.check_circle),
-                    SizedBox(width: 8),
-                    Text('Publier', style: TextStyle(fontWeight: FontWeight.w700)),
-                  ],
-                ),
+                child: isUploading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
+                      )
+                    : const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle),
+                          SizedBox(width: 8),
+                          Text('Publier', style: TextStyle(fontWeight: FontWeight.w700)),
+                        ],
+                      ),
               ),
             ],
           );
@@ -1842,9 +1867,7 @@ class _TrainingPageState extends State<TrainingPage>
             return Container(
               margin: const EdgeInsets.symmetric(horizontal: 24),
               padding: const EdgeInsets.all(12),
-              constraints: const BoxConstraints(
-                maxHeight: 110,
-              ),
+              height: 110,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(16),
@@ -1855,6 +1878,7 @@ class _TrainingPageState extends State<TrainingPage>
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
                     children: [
@@ -1874,8 +1898,8 @@ class _TrainingPageState extends State<TrainingPage>
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Flexible(
+                  const SizedBox(height: 8),
+                  Expanded(
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: sets.length,
