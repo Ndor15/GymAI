@@ -1921,7 +1921,7 @@ class _TrainingPageState extends State<TrainingPage>
                         final set = sets[index];
                         return Container(
                           width: 140,
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: const Color(0xFF101010),
                             borderRadius: BorderRadius.circular(12),
@@ -1939,24 +1939,25 @@ class _TrainingPageState extends State<TrainingPage>
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 13,
+                                  fontSize: 12,
                                 ),
                                 overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 2),
                               Row(
                                 children: [
                                   const Icon(
                                     Icons.repeat,
                                     color: Colors.white70,
-                                    size: 14,
+                                    size: 12,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     '${set.reps} reps',
                                     style: const TextStyle(
                                       color: Colors.white70,
-                                      fontSize: 12,
+                                      fontSize: 11,
                                     ),
                                   ),
                                 ],
@@ -1968,14 +1969,17 @@ class _TrainingPageState extends State<TrainingPage>
                                     const Icon(
                                       Icons.speed,
                                       color: Colors.white70,
-                                      size: 14,
+                                      size: 12,
                                     ),
                                     const SizedBox(width: 4),
-                                    Text(
-                                      set.formattedTempo,
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
+                                    Flexible(
+                                      child: Text(
+                                        set.formattedTempo,
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 11,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
