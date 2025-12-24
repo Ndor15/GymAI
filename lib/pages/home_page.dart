@@ -426,15 +426,10 @@ class _HomePageState extends State<HomePage> {
           ),
 
           // Photo (if available)
-          if (post.photoPath != null && File(post.photoPath!).existsSync())
+          if (post.photoPath != null)
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-              child: Image.file(
-                File(post.photoPath!),
-                width: double.infinity,
-                height: 300,
-                fit: BoxFit.cover,
-              ),
+              child: _buildPostImage(post.photoPath!),
             ),
 
           // Workout stats
@@ -497,6 +492,82 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+
+  Widget _buildPostImage(String photoPath) {
+    // Check if it's a URL (Firebase Storage) or local file path
+    final isUrl = photoPath.startsWith('http://') || photoPath.startsWith('https://');
+
+    if (isUrl) {
+      return Image.network(
+        photoPath,
+        width: double.infinity,
+        height: 300,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            width: double.infinity,
+            height: 300,
+            color: Colors.white.withOpacity(0.05),
+            child: Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                    : null,
+                color: AppTheme.yellow,
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: double.infinity,
+            height: 300,
+            color: Colors.white.withOpacity(0.05),
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.broken_image, color: Colors.white38, size: 48),
+                SizedBox(height: 8),
+                Text(
+                  'Impossible de charger l\'image',
+                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } else {
+      // Local file path
+      final file = File(photoPath);
+      if (file.existsSync()) {
+        return Image.file(
+          file,
+          width: double.infinity,
+          height: 300,
+          fit: BoxFit.cover,
+        );
+      } else {
+        return Container(
+          width: double.infinity,
+          height: 300,
+          color: Colors.white.withOpacity(0.05),
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.image_not_supported, color: Colors.white38, size: 48),
+              SizedBox(height: 8),
+              Text(
+                'Image introuvable',
+                style: TextStyle(color: Colors.white38, fontSize: 12),
+              ),
+            ],
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildPostStat(IconData icon, String text) {
