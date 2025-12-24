@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Photos</string>
+	<key>LSApplicationCategoryType</key>
+	<string></string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -27,9 +31,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Cette app utilise le Bluetooth pour se connecter à votre haltère intelligent et suivre vos mouvements pendant l'entraînement.</string>
+	<string>Cette app utilise le Bluetooth pour se connecter à votre haltère intelligent et suivre vos mouvements pendant l&apos;entraînement.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Cette app utilise le Bluetooth pour se connecter à votre haltère intelligent et suivre vos mouvements pendant l'entraînement.</string>
+	<string>Cette app utilise le Bluetooth pour se connecter à votre haltère intelligent et suivre vos mouvements pendant l&apos;entraînement.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
