@@ -83,10 +83,9 @@ class FirestorePostService {
       final snapshot = await _firestore
           .collection('posts')
           .where('userId', isEqualTo: _currentUserId)
-          .orderBy('publishedAt', descending: true)
           .get();
 
-      return snapshot.docs.map((doc) {
+      final posts = snapshot.docs.map((doc) {
         final data = doc.data();
         return WorkoutPost(
           id: data['id'] as String,
@@ -96,6 +95,11 @@ class FirestorePostService {
           publishedAt: (data['publishedAt'] as Timestamp).toDate(),
         );
       }).toList();
+
+      // Sort in memory instead of using orderBy (avoids need for index)
+      posts.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+
+      return posts;
     } catch (e) {
       print('Error getting user posts: $e');
       return [];
@@ -114,12 +118,10 @@ class FirestorePostService {
       // Add current user to the list
       final userIds = [...following, _currentUserId!];
 
-      // Get posts from these users
+      // Get posts from these users (without orderBy to avoid index requirement)
       final snapshot = await _firestore
           .collection('posts')
           .where('userId', whereIn: userIds.isEmpty ? [''] : userIds)
-          .orderBy('publishedAt', descending: true)
-          .limit(50)
           .get();
 
       // Get user data for each post
@@ -149,7 +151,14 @@ class FirestorePostService {
         });
       }
 
-      return posts;
+      // Sort in memory and limit to 50
+      posts.sort((a, b) {
+        final dateA = (a['post'] as WorkoutPost).publishedAt;
+        final dateB = (b['post'] as WorkoutPost).publishedAt;
+        return dateB.compareTo(dateA);
+      });
+
+      return posts.take(50).toList();
     } catch (e) {
       print('Error getting feed posts: $e');
       return [];
@@ -209,18 +218,23 @@ class FirestorePostService {
       final userDoc = await _firestore.collection('users').doc(_currentUserId).get();
       final userData = userDoc.data();
 
-      // Calculate this week's workouts
+      // Calculate this week's workouts - get all posts and filter in memory
       final weekAgo = DateTime.now().subtract(const Duration(days: 7));
-      final weekSnapshot = await _firestore
+      final allPosts = await _firestore
           .collection('posts')
           .where('userId', isEqualTo: _currentUserId)
-          .where('publishedAt', isGreaterThan: Timestamp.fromDate(weekAgo))
           .get();
+
+      // Filter in memory to avoid needing composite index
+      final thisWeekPosts = allPosts.docs.where((doc) {
+        final publishedAt = (doc.data()['publishedAt'] as Timestamp).toDate();
+        return publishedAt.isAfter(weekAgo);
+      }).length;
 
       return {
         'totalWorkouts': userData?['totalWorkouts'] ?? 0,
         'totalReps': userData?['totalReps'] ?? 0,
-        'thisWeekWorkouts': weekSnapshot.docs.length,
+        'thisWeekWorkouts': thisWeekPosts,
       };
     } catch (e) {
       print('Error getting stats: $e');
